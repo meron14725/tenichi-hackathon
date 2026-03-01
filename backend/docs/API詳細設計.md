@@ -65,12 +65,23 @@ ISO 8601（JST offset 付き）を使用します。
 | `NOT_FOUND` | 404 | リソースが存在しない |
 | `CONFLICT` | 409 | 一意制約違反（メールアドレス重複等） |
 | `INTERNAL_SERVER_ERROR` | 500 | サーバー内部エラー |
+| `ROUTE_NOT_FOUND` | 404 | 指定条件で経路が見つからない |
+| `OTP_UNAVAILABLE` | 503 | OTP2 サーバーへの接続失敗 |
+| `HOME_LOCATION_NOT_SET` | 400 | `UserSettings.home_lat/lon` が未設定 |
 
 ---
 
 ## Auth（認証）
 
 ### POST /auth/register — 新規ユーザー登録
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `email` | `string` | ○ | メールアドレス（一意） |
+| `password` | `string` | ○ | パスワード |
+| `name` | `string` | ○ | 表示名 |
 
 **リクエスト**
 
@@ -104,6 +115,13 @@ ISO 8601（JST offset 付き）を使用します。
 
 ### POST /auth/login — ログイン
 
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `email` | `string` | ○ | メールアドレス |
+| `password` | `string` | ○ | パスワード |
+
 **リクエスト**
 
 ```jsonc
@@ -136,6 +154,12 @@ ISO 8601（JST offset 付き）を使用します。
 ---
 
 ### POST /auth/refresh — アクセストークン更新
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `refresh_token` | `string` | ○ | 発行済みリフレッシュトークン |
 
 **リクエスト**
 
@@ -177,6 +201,12 @@ ISO 8601（JST offset 付き）を使用します。
 
 部分更新（PATCH セマンティクス）。変更したいフィールドのみ送信可。
 
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `name` | `string` | 任意 | 表示名 |
+
 **リクエスト**
 
 ```jsonc
@@ -217,6 +247,16 @@ ISO 8601（JST offset 付き）を使用します。
 ### PUT /users/me/settings — 個人設定更新
 
 部分更新（PATCH セマンティクス）。変更したいフィールドのみ送信可。
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `home_address` | `string` | 任意 | 自宅住所（ジオコーディングに使用） |
+| `home_lat` | `float` | 任意 | 自宅の緯度（直接指定する場合） |
+| `home_lon` | `float` | 任意 | 自宅の経度（直接指定する場合） |
+| `preparation_minutes` | `integer` | 任意 | 身支度時間（分） |
+| `timezone` | `string` | 任意 | タイムゾーン（例: `Asia/Tokyo`） |
 
 **リクエスト**
 
@@ -282,6 +322,21 @@ ISO 8601（JST offset 付き）を使用します。
 
 ### POST /schedules — 予定作成
 
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `title` | `string` | ○ | 予定のタイトル |
+| `start_at` | `string` | ○ | 開始日時（ISO 8601 JST） |
+| `end_at` | `string` | 任意 | 終了日時（ISO 8601 JST）。nullable |
+| `destination_name` | `string` | 任意 | 目的地名 |
+| `destination_address` | `string` | 任意 | 目的地住所 |
+| `destination_lat` | `float` | 任意 | 目的地の緯度。nullable |
+| `destination_lon` | `float` | 任意 | 目的地の経度。nullable |
+| `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
+| `memo` | `string` | 任意 | 準備メモ。nullable |
+| `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+
 **リクエスト**
 
 ```jsonc
@@ -333,6 +388,21 @@ ISO 8601（JST offset 付き）を使用します。
 
 部分更新（PATCH セマンティクス）。変更したいフィールドのみ送信可。
 
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `title` | `string` | 任意 | 予定のタイトル |
+| `start_at` | `string` | 任意 | 開始日時（ISO 8601 JST） |
+| `end_at` | `string` | 任意 | 終了日時（ISO 8601 JST）。nullable |
+| `destination_name` | `string` | 任意 | 目的地名 |
+| `destination_address` | `string` | 任意 | 目的地住所 |
+| `destination_lat` | `float` | 任意 | 目的地の緯度。nullable |
+| `destination_lon` | `float` | 任意 | 目的地の経度。nullable |
+| `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
+| `memo` | `string` | 任意 | 準備メモ。nullable |
+| `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+
 **リクエスト**
 
 ```jsonc
@@ -383,6 +453,19 @@ ISO 8601（JST offset 付き）を使用します。
 
 ### POST /templates — テンプレート作成
 
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `name` | `string` | ○ | テンプレート名 |
+| `destination_name` | `string` | 任意 | 目的地名 |
+| `destination_address` | `string` | 任意 | 目的地住所 |
+| `destination_lat` | `float` | 任意 | 目的地の緯度。nullable |
+| `destination_lon` | `float` | 任意 | 目的地の経度。nullable |
+| `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
+| `memo` | `string` | 任意 | 準備メモ。nullable |
+| `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+
 **リクエスト**
 
 ```jsonc
@@ -430,6 +513,19 @@ ISO 8601（JST offset 付き）を使用します。
 
 部分更新（PATCH セマンティクス）。変更したいフィールドのみ送信可。
 
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `name` | `string` | 任意 | テンプレート名 |
+| `destination_name` | `string` | 任意 | 目的地名 |
+| `destination_address` | `string` | 任意 | 目的地住所 |
+| `destination_lat` | `float` | 任意 | 目的地の緯度 |
+| `destination_lon` | `float` | 任意 | 目的地の経度 |
+| `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
+| `memo` | `string` | 任意 | 準備メモ |
+| `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+
 **リクエスト**
 
 ```jsonc
@@ -453,6 +549,14 @@ ISO 8601（JST offset 付き）を使用します。
 
 テンプレートの内容をコピーして新しい Schedule を作成します。
 テンプレートを後から編集しても作成済み予定には影響しません（データモデル草案 § 設計メモ 参照）。
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `title` | `string` | ○ | 作成する予定のタイトル |
+| `start_at` | `string` | ○ | 開始日時（ISO 8601 JST） |
+| `end_at` | `string` | 任意 | 終了日時（ISO 8601 JST）。nullable |
 
 **リクエスト**
 
@@ -577,6 +681,15 @@ ISO 8601（JST offset 付き）を使用します。
 
 部分更新（PATCH セマンティクス）。変更したいフィールドのみ送信可。
 
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `weather_enabled` | `boolean` | 任意 | 天気通知の有効/無効 |
+| `weather_notify_time` | `string` | 任意 | 天気通知時刻（`HH:MM` 形式） |
+| `reminder_enabled` | `boolean` | 任意 | 出発リマインダーの有効/無効 |
+| `reminder_minutes_before` | `integer` | 任意 | 出発の何分前に通知するか |
+
 **リクエスト**
 
 ```jsonc
@@ -600,6 +713,13 @@ ISO 8601（JST offset 付き）を使用します。
 ---
 
 ### POST /notifications/tokens — デバイストークン登録
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `token` | `string` | ○ | FCM デバイストークン |
+| `platform` | `string` | ○ | プラットフォーム。`"ios"` または `"android"` |
 
 **リクエスト**
 
@@ -629,21 +749,173 @@ ISO 8601（JST offset 付き）を使用します。
 
 ---
 
+## Routes（経路）
+
+> **使用外部 API:** OTP2（OpenTripPlanner 2）— 詳細は `backend/docs/経路探索API設計調査.md` を参照
+
+### POST /routes/search — 経路検索
+
+出発地・目的地の座標と移動手段を受け取り、乗換案内付きの経路一覧を返す。`arrival_time` を指定すると指定時刻に間に合う経路を、省略すると現在時刻出発の最速経路を返す（最大5件）。
+
+**リクエストパラメータ**
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `origin_lat` | `float` | 任意 | 出発地の緯度。省略時は `UserSettings.home_lat` を使用 |
+| `origin_lon` | `float` | 任意 | 出発地の経度。省略時は `UserSettings.home_lon` を使用 |
+| `destination_lat` | `float` | ○ | 目的地の緯度 |
+| `destination_lon` | `float` | ○ | 目的地の経度 |
+| `travel_mode` | `string` | ○ | 移動手段。`transit`（電車・バス）/ `walking`（徒歩）/ `cycling`（自転車）/ `driving`（車） |
+| `arrival_time` | `string` | 任意 | 到着希望時刻（ISO 8601 JST）。省略時は現在時刻出発 |
+
+**リクエスト**
+
+```jsonc
+{
+  "origin_lat": 35.6895,          // 省略時は UserSettings.home_lat を使用
+  "origin_lon": 139.6917,         // 省略時は UserSettings.home_lon を使用
+  "destination_lat": 35.6580,     // 必須
+  "destination_lon": 139.7016,    // 必須
+  "travel_mode": "transit",       // 必須。"transit" / "walking" / "cycling" / "driving"
+  "arrival_time": "2026-03-10T19:00:00+09:00"  // 任意。省略時は現在時刻出発
+}
+```
+
+**レスポンスフィールド**
+
+| フィールド | 説明 |
+|-----------|------|
+| `itineraries` | 経路候補の配列（最大5件） |
+| `itineraries[].departure_time` | 出発時刻 |
+| `itineraries[].arrival_time` | 到着時刻 |
+| `itineraries[].duration_minutes` | 総所要時間（分） |
+| `itineraries[].number_of_transfers` | 乗り換え回数（`transit` のみ返却） |
+| `itineraries[].legs` | 区間ごとの移動情報 |
+
+**レスポンス `200 OK`**（最大5件）
+
+```jsonc
+{
+  "itineraries": [
+    {
+      "departure_time": "2026-03-10T18:12:00+09:00",
+      "arrival_time": "2026-03-10T18:58:00+09:00",
+      "duration_minutes": 46,
+      "number_of_transfers": 1,
+      "legs": [
+        {
+          "mode": "WALK",
+          "from_name": "出発地",
+          "to_name": "高円寺駅",
+          "departure_time": "2026-03-10T18:12:00+09:00",
+          "arrival_time": "2026-03-10T18:20:00+09:00",
+          "duration_minutes": 8
+        },
+        {
+          "mode": "RAIL",
+          "route_short_name": "中央線（快速）",
+          "agency_name": "JR東日本",
+          "headsign": "東京方面",
+          "from_name": "高円寺駅",
+          "to_name": "新宿駅",
+          "departure_time": "2026-03-10T18:23:00+09:00",
+          "arrival_time": "2026-03-10T18:29:00+09:00",
+          "duration_minutes": 6
+        }
+      ]
+    }
+  ]
+}
+```
+
+> **travel_mode 別の legs フィールド差異:**
+> - `transit`: legs に WALK + RAIL/SUBWAY/BUS が混在。RAIL/SUBWAY/BUS の legs には `route_short_name`, `agency_name`, `headsign` を含む。`number_of_transfers` を返却。
+> - `walking` / `cycling` / `driving`: legs は1件のみ（WALK / BICYCLE / CAR）。`route_short_name`, `agency_name`, `headsign`, `number_of_transfers` は返却しない。
+
+---
+
+### POST /routes/departure-time — 出発時刻逆算
+
+目的地座標と到着希望時刻を受け取り、「いつ家を出ればよいか（`leave_home_at`）」と「いつ身支度を始めればよいか（`start_preparation_at`）」を返す。出発地は `UserSettings.home_lat` / `home_lon` を自動取得するためリクエストに含める必要はない。
+
+**リクエストパラメータ**
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `destination_lat` | `float` | ○ | 目的地の緯度 |
+| `destination_lon` | `float` | ○ | 目的地の経度 |
+| `arrival_time` | `string` | ○ | 到着希望時刻（ISO 8601 JST） |
+| `travel_mode` | `string` | ○ | 移動手段。`transit` / `walking` / `cycling` / `driving` |
+
+> サーバーが自動取得する値: `UserSettings.home_lat` / `home_lon`（出発地）、`UserSettings.preparation_minutes`（身支度時間）
+
+**リクエスト**
+
+```jsonc
+{
+  "destination_lat": 35.6580,                    // 必須
+  "destination_lon": 139.7016,                   // 必須
+  "arrival_time": "2026-03-10T19:00:00+09:00",   // 必須。ISO 8601 JST
+  "travel_mode": "transit"                        // 必須。"transit" / "walking" / "cycling" / "driving"
+  // origin_lat / origin_lon は UserSettings.home_lat / home_lon を自動取得
+  // preparation_minutes は UserSettings.preparation_minutes を自動取得
+}
+```
+
+**レスポンスフィールド**
+
+| フィールド | 説明 |
+|-----------|------|
+| `leave_home_at` | 家を出るべき時刻（OTP2 が算出した itinerary.start） |
+| `start_preparation_at` | 身支度を始めるべき時刻（`leave_home_at` - `preparation_minutes`） |
+| `preparation_minutes` | 使用した身支度時間（`UserSettings` から取得、確認用） |
+| `arrival_time` | リクエストで指定した到着時刻（確認用） |
+| `itinerary` | OTP2 が選択した最適経路の詳細（legs フィールドは `/routes/search` と同形式） |
+
+**レスポンス `200 OK`**
+
+```jsonc
+{
+  "leave_home_at": "2026-03-10T18:12:00+09:00",         // OTP2 が算出した家を出る時刻（itinerary.start）
+  "start_preparation_at": "2026-03-10T17:42:00+09:00",   // leave_home_at - preparation_minutes（身支度を始める時刻）
+  "preparation_minutes": 30,                               // UserSettings から取得した値（確認用）
+  "arrival_time": "2026-03-10T19:00:00+09:00",            // リクエストで指定した到着時刻（確認用）
+  "itinerary": {
+    "duration_minutes": 48,
+    "number_of_transfers": 1,
+    "legs": [
+      {
+        "mode": "WALK",
+        "from_name": "自宅付近",
+        "to_name": "高円寺駅",
+        "departure_time": "2026-03-10T18:12:00+09:00",
+        "arrival_time": "2026-03-10T18:20:00+09:00",
+        "duration_minutes": 8
+      },
+      {
+        "mode": "RAIL",
+        "route_short_name": "中央線（快速）",
+        "agency_name": "JR東日本",
+        "headsign": "東京方面",
+        "from_name": "高円寺駅",
+        "to_name": "新宿駅",
+        "departure_time": "2026-03-10T18:23:00+09:00",
+        "arrival_time": "2026-03-10T18:29:00+09:00",
+        "duration_minutes": 6
+      }
+    ]
+  }
+}
+```
+
+> `UserSettings.home_lat` / `home_lon` が未設定の場合は `HOME_LOCATION_NOT_SET (400)` を返します。
+
+---
+
 ## 未決定エンドポイント（TBD）
 
 以下のエンドポイントは前提となる選定・定義が完了していないため、本ドキュメントへの記載を保留します。
 各ブロッカーが解消次第、追記してください。
-
-### Routes（経路）
-
-`POST /routes/search` および `POST /routes/departure-time` は外部経路 API の選定が確定していないため保留。
-
-レスポンス構造が外部 API 依存（Google Directions API / Yahoo! 乗換 API 等）となるため、
-API 選定後に本ドキュメントへ追記します。
-
-**ブロッカー:** `api仕様.md § 1. 外部API選定` — 経路 API 未選定
-
----
 
 ### Suggestions（提案）
 
