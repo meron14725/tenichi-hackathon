@@ -136,17 +136,11 @@ UIのオブジェクト指向設計（https://miro.com/app/board/uXjVG8RL25g=/ �
 
 | メソッド | エンドポイント | 概要 |
 |---------|--------------|------|
-| POST | `/routes/search` | 経路検索（出発地・目的地・移動手段） |
-| POST | `/routes/departure-time` | 到着時刻から出発時刻を逆算 |
-
-**`/routes/search` リクエスト想定項目:**
-- `origin` — 出発地（住所 or 座標）
-- `destination` — 目的地（住所 or 座標）
-- `mode` — 移動手段（`walking` / `cycling` / `transit` / `driving`）
-- `arrival_time` — 到着希望時刻（省略時は現在時刻出発）
+| POST | `/routes/departure-time` | 到着時刻から出発時刻を逆算・複数経路候補を取得 |
 
 **`/routes/departure-time` リクエスト想定項目:**
-- `destination`、`arrival_time`、`mode`、`preparation_minutes`（身支度時間）
+- `destination_lat`、`destination_lon`、`arrival_time`、`travel_mode`
+- 出発地（`home_lat` / `home_lon`）・身支度時間（`preparation_minutes`）はサーバーが `UserSettings` から自動取得
 
 ---
 
