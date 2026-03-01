@@ -753,90 +753,9 @@ ISO 8601（JST offset 付き）を使用します。
 
 > **使用外部 API:** OTP2（OpenTripPlanner 2）— 詳細は `backend/docs/経路探索API設計調査.md` を参照
 
-### POST /routes/search — 経路検索
+### POST /routes/departure-time — 出発時刻逆算・経路候補取得
 
-出発地・目的地の座標と移動手段を受け取り、乗換案内付きの経路一覧を返す。`arrival_time` を指定すると指定時刻に間に合う経路を、省略すると現在時刻出発の最速経路を返す（最大5件）。
-
-**リクエストパラメータ**
-
-| フィールド | 型 | 必須 | 説明 |
-|-----------|----|----|------|
-| `origin_lat` | `float` | 任意 | 出発地の緯度。省略時は `UserSettings.home_lat` を使用 |
-| `origin_lon` | `float` | 任意 | 出発地の経度。省略時は `UserSettings.home_lon` を使用 |
-| `destination_lat` | `float` | ○ | 目的地の緯度 |
-| `destination_lon` | `float` | ○ | 目的地の経度 |
-| `travel_mode` | `string` | ○ | 移動手段。`transit`（電車・バス）/ `walking`（徒歩）/ `cycling`（自転車）/ `driving`（車） |
-| `arrival_time` | `string` | 任意 | 到着希望時刻（ISO 8601 JST）。省略時は現在時刻出発 |
-
-**リクエスト**
-
-```jsonc
-{
-  "origin_lat": 35.6895,          // 省略時は UserSettings.home_lat を使用
-  "origin_lon": 139.6917,         // 省略時は UserSettings.home_lon を使用
-  "destination_lat": 35.6580,     // 必須
-  "destination_lon": 139.7016,    // 必須
-  "travel_mode": "transit",       // 必須。"transit" / "walking" / "cycling" / "driving"
-  "arrival_time": "2026-03-10T19:00:00+09:00"  // 任意。省略時は現在時刻出発
-}
-```
-
-**レスポンスフィールド**
-
-| フィールド | 説明 |
-|-----------|------|
-| `itineraries` | 経路候補の配列（最大5件） |
-| `itineraries[].departure_time` | 出発時刻 |
-| `itineraries[].arrival_time` | 到着時刻 |
-| `itineraries[].duration_minutes` | 総所要時間（分） |
-| `itineraries[].number_of_transfers` | 乗り換え回数（`transit` のみ返却） |
-| `itineraries[].legs` | 区間ごとの移動情報 |
-
-**レスポンス `200 OK`**（最大5件）
-
-```jsonc
-{
-  "itineraries": [
-    {
-      "departure_time": "2026-03-10T18:12:00+09:00",
-      "arrival_time": "2026-03-10T18:58:00+09:00",
-      "duration_minutes": 46,
-      "number_of_transfers": 1,
-      "legs": [
-        {
-          "mode": "WALK",
-          "from_name": "出発地",
-          "to_name": "高円寺駅",
-          "departure_time": "2026-03-10T18:12:00+09:00",
-          "arrival_time": "2026-03-10T18:20:00+09:00",
-          "duration_minutes": 8
-        },
-        {
-          "mode": "RAIL",
-          "route_short_name": "中央線（快速）",
-          "agency_name": "JR東日本",
-          "headsign": "東京方面",
-          "from_name": "高円寺駅",
-          "to_name": "新宿駅",
-          "departure_time": "2026-03-10T18:23:00+09:00",
-          "arrival_time": "2026-03-10T18:29:00+09:00",
-          "duration_minutes": 6
-        }
-      ]
-    }
-  ]
-}
-```
-
-> **travel_mode 別の legs フィールド差異:**
-> - `transit`: legs に WALK + RAIL/SUBWAY/BUS が混在。RAIL/SUBWAY/BUS の legs には `route_short_name`, `agency_name`, `headsign` を含む。`number_of_transfers` を返却。
-> - `walking` / `cycling` / `driving`: legs は1件のみ（WALK / BICYCLE / CAR）。`route_short_name`, `agency_name`, `headsign`, `number_of_transfers` は返却しない。
-
----
-
-### POST /routes/departure-time — 出発時刻逆算
-
-目的地座標と到着希望時刻を受け取り、「いつ家を出ればよいか（`leave_home_at`）」と「いつ身支度を始めればよいか（`start_preparation_at`）」を返す。出発地は `UserSettings.home_lat` / `home_lon` を自動取得するためリクエストに含める必要はない。
+目的地座標と到着希望時刻を受け取り、「いつ家を出ればよいか（`leave_home_at`）」「いつ身支度を始めればよいか（`start_preparation_at`）」および複数経路候補（`itineraries[]`）を返す。出発地は `UserSettings.home_lat` / `home_lon` を自動取得するためリクエストに含める必要はない。
 
 **リクエストパラメータ**
 
@@ -866,47 +785,61 @@ ISO 8601（JST offset 付き）を使用します。
 
 | フィールド | 説明 |
 |-----------|------|
-| `leave_home_at` | 家を出るべき時刻（OTP2 が算出した itinerary.start） |
+| `leave_home_at` | 家を出るべき時刻（`itineraries[0].departure_time`） |
 | `start_preparation_at` | 身支度を始めるべき時刻（`leave_home_at` - `preparation_minutes`） |
 | `preparation_minutes` | 使用した身支度時間（`UserSettings` から取得、確認用） |
 | `arrival_time` | リクエストで指定した到着時刻（確認用） |
-| `itinerary` | OTP2 が選択した最適経路の詳細（legs フィールドは `/routes/search` と同形式） |
+| `itineraries[]` | OTP2 が返す経路候補の配列（最大5件）。`itineraries[0]` が最速ルート |
+| `itineraries[].departure_time` | 出発時刻 |
+| `itineraries[].arrival_time` | 到着時刻 |
+| `itineraries[].duration_minutes` | 総所要時間（分） |
+| `itineraries[].number_of_transfers` | 乗り換え回数（`transit` のみ返却） |
+| `itineraries[].legs` | 区間ごとの移動情報 |
 
 **レスポンス `200 OK`**
 
 ```jsonc
 {
-  "leave_home_at": "2026-03-10T18:12:00+09:00",         // OTP2 が算出した家を出る時刻（itinerary.start）
+  "leave_home_at": "2026-03-10T18:12:00+09:00",         // itineraries[0].departure_time
   "start_preparation_at": "2026-03-10T17:42:00+09:00",   // leave_home_at - preparation_minutes（身支度を始める時刻）
   "preparation_minutes": 30,                               // UserSettings から取得した値（確認用）
   "arrival_time": "2026-03-10T19:00:00+09:00",            // リクエストで指定した到着時刻（確認用）
-  "itinerary": {
-    "duration_minutes": 48,
-    "number_of_transfers": 1,
-    "legs": [
-      {
-        "mode": "WALK",
-        "from_name": "自宅付近",
-        "to_name": "高円寺駅",
-        "departure_time": "2026-03-10T18:12:00+09:00",
-        "arrival_time": "2026-03-10T18:20:00+09:00",
-        "duration_minutes": 8
-      },
-      {
-        "mode": "RAIL",
-        "route_short_name": "中央線（快速）",
-        "agency_name": "JR東日本",
-        "headsign": "東京方面",
-        "from_name": "高円寺駅",
-        "to_name": "新宿駅",
-        "departure_time": "2026-03-10T18:23:00+09:00",
-        "arrival_time": "2026-03-10T18:29:00+09:00",
-        "duration_minutes": 6
-      }
-    ]
-  }
+  "itineraries": [                                         // 経路候補の配列（最大5件）。itineraries[0] が最速ルート
+    {
+      "departure_time": "2026-03-10T18:12:00+09:00",
+      "arrival_time": "2026-03-10T18:58:00+09:00",
+      "duration_minutes": 46,
+      "number_of_transfers": 1,
+      "legs": [
+        {
+          "mode": "WALK",
+          "from_name": "自宅付近",
+          "to_name": "高円寺駅",
+          "departure_time": "2026-03-10T18:12:00+09:00",
+          "arrival_time": "2026-03-10T18:20:00+09:00",
+          "duration_minutes": 8
+        },
+        {
+          "mode": "RAIL",
+          "route_short_name": "中央線（快速）",
+          "agency_name": "JR東日本",
+          "headsign": "東京方面",
+          "from_name": "高円寺駅",
+          "to_name": "新宿駅",
+          "departure_time": "2026-03-10T18:23:00+09:00",
+          "arrival_time": "2026-03-10T18:29:00+09:00",
+          "duration_minutes": 6
+        }
+      ]
+    },
+    { }   // 最大5件
+  ]
 }
 ```
+
+> **travel_mode 別の legs フィールド差異:**
+> - `transit`: legs に WALK + RAIL/SUBWAY/BUS が混在。RAIL/SUBWAY/BUS の legs には `route_short_name`, `agency_name`, `headsign` を含む。`number_of_transfers` を返却。
+> - `walking` / `cycling` / `driving`: legs は1件のみ（WALK / BICYCLE / CAR）。`route_short_name`, `agency_name`, `headsign`, `number_of_transfers` は返却しない。
 
 > `UserSettings.home_lat` / `home_lon` が未設定の場合は `HOME_LOCATION_NOT_SET (400)` を返します。
 
