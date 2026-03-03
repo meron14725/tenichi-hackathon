@@ -82,6 +82,11 @@ ISO 8601（JST offset 付き）を使用します。
 | `email` | `string` | ○ | メールアドレス（一意） |
 | `password` | `string` | ○ | パスワード |
 | `name` | `string` | ○ | 表示名 |
+| `home_address` | `string` | ○ | 自宅住所（経路・天気の基点） |
+| `home_lat` | `float` | ○ | 自宅の緯度 |
+| `home_lon` | `float` | ○ | 自宅の経度 |
+| `preparation_minutes` | `integer` | ○ | 身支度時間（分） |
+| `reminder_minutes_before` | `integer` | ○ | 出発の何分前に通知するか |
 
 **リクエスト**
 
@@ -89,7 +94,12 @@ ISO 8601（JST offset 付き）を使用します。
 {
   "email": "user@example.com",
   "password": "secret",
-  "name": "山田太郎"
+  "name": "山田太郎",
+  "home_address": "東京都渋谷区...",
+  "home_lat": 35.658034,
+  "home_lon": 139.701636,
+  "preparation_minutes": 30,
+  "reminder_minutes_before": 30
 }
 ```
 
@@ -109,7 +119,7 @@ ISO 8601（JST offset 付き）を使用します。
 }
 ```
 
-> `UserSettings` / `NotificationSettings` はユーザー登録時にデフォルト値で自動作成することを推奨（`データモデル草案.md § D-1` 参照）。
+> `UserSettings` / `NotificationSettings` はユーザー登録時に同一トランザクションで作成します（`データモデル草案.md § D-1` 参照）。`UserSettings` の各フィールドは登録時に必須入力です。
 
 ---
 
@@ -238,6 +248,7 @@ ISO 8601（JST offset 付き）を使用します。
   "home_lat": 35.658034,
   "home_lon": 139.701636,
   "preparation_minutes": 30,
+  "reminder_minutes_before": 30,
   "timezone": "Asia/Tokyo"
 }
 ```
@@ -256,6 +267,7 @@ ISO 8601（JST offset 付き）を使用します。
 | `home_lat` | `float` | 任意 | 自宅の緯度（直接指定する場合） |
 | `home_lon` | `float` | 任意 | 自宅の経度（直接指定する場合） |
 | `preparation_minutes` | `integer` | 任意 | 身支度時間（分） |
+| `reminder_minutes_before` | `integer` | 任意 | 出発の何分前に通知するか |
 | `timezone` | `string` | 任意 | タイムゾーン（例: `Asia/Tokyo`） |
 
 **リクエスト**
@@ -263,7 +275,8 @@ ISO 8601（JST offset 付き）を使用します。
 ```jsonc
 {
   "home_address": "東京都新宿区...",
-  "preparation_minutes": 20
+  "preparation_minutes": 20,
+  "reminder_minutes_before": 60
 }
 ```
 
@@ -275,6 +288,7 @@ ISO 8601（JST offset 付き）を使用します。
   "home_lat": null,
   "home_lon": null,
   "preparation_minutes": 20,
+  "reminder_minutes_before": 60,
   "timezone": "Asia/Tokyo"
 }
 ```
@@ -425,6 +439,9 @@ ISO 8601（JST offset 付き）を使用します。
 
 ## Templates（テンプレート）
 
+> Template は「1日全体の予定集合の雛形」。Template 自体は名前と TemplateCategory のみ持ち、内部に複数の TemplateSchedule（時刻固定の予定雛形）を持つ。
+> `POST /templates/{id}/apply` で指定日付に適用すると、TemplateSchedule の `start_time` / `end_time` と日付を組み合わせた Schedule が複数作成される。
+
 ### GET /templates — テンプレート一覧取得
 
 **レスポンス `200 OK`**
@@ -433,15 +450,37 @@ ISO 8601（JST offset 付き）を使用します。
 [
   {
     "id": 1,
-    "name": "週1ジム",
-    "destination_name": "GOLD'S GYM 渋谷",
-    "destination_address": "東京都渋谷区...",
-    "destination_lat": null,
-    "destination_lon": null,
-    "travel_mode": "walking",
-    "memo": "ウェアを忘れずに",
-    "tags": [
-      { "id": 1, "name": "運動" }
+    "name": "仕事の日ルーティン",
+    "category": { "id": 1, "name": "仕事の日" },
+    "schedules": [
+      {
+        "id": 10,
+        "title": "朝の準備",
+        "start_time": "07:30",
+        "end_time": "08:30",
+        "destination_name": null,
+        "destination_address": null,
+        "destination_lat": null,
+        "destination_lon": null,
+        "travel_mode": null,
+        "memo": "スーツ着用",
+        "sort_order": 1,
+        "tags": [{ "id": 1, "name": "仕事" }]
+      },
+      {
+        "id": 11,
+        "title": "オフィス出勤",
+        "start_time": "09:00",
+        "end_time": "18:00",
+        "destination_name": "本社オフィス",
+        "destination_address": "東京都千代田区...",
+        "destination_lat": 35.681,
+        "destination_lon": 139.767,
+        "travel_mode": "transit",
+        "memo": null,
+        "sort_order": 2,
+        "tags": []
+      }
     ],
     "created_at": "2026-03-01T09:00:00+09:00",
     "updated_at": "2026-03-01T09:00:00+09:00"
@@ -458,26 +497,47 @@ ISO 8601（JST offset 付き）を使用します。
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|----|----|------|
 | `name` | `string` | ○ | テンプレート名 |
-| `destination_name` | `string` | 任意 | 目的地名 |
-| `destination_address` | `string` | 任意 | 目的地住所 |
-| `destination_lat` | `float` | 任意 | 目的地の緯度。nullable |
-| `destination_lon` | `float` | 任意 | 目的地の経度。nullable |
-| `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
-| `memo` | `string` | 任意 | 準備メモ。nullable |
-| `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+| `category_id` | `integer` | 任意 | TemplateCategory の ID。nullable |
+| `schedules` | `array` | 任意 | テンプレート内の予定雛形の配列 |
+| `schedules[].title` | `string` | ○ | 予定タイトル |
+| `schedules[].start_time` | `string (HH:MM)` | ○ | 開始時刻 |
+| `schedules[].end_time` | `string (HH:MM)` | 任意 | 終了時刻。nullable |
+| `schedules[].destination_name` | `string` | 任意 | 目的地名。nullable |
+| `schedules[].destination_address` | `string` | 任意 | 目的地住所。nullable |
+| `schedules[].destination_lat` | `float` | 任意 | 目的地の緯度。nullable |
+| `schedules[].destination_lon` | `float` | 任意 | 目的地の経度。nullable |
+| `schedules[].travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
+| `schedules[].memo` | `string` | 任意 | メモ。nullable |
+| `schedules[].tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+| `schedules[].sort_order` | `integer` | 任意 | 表示順 |
 
 **リクエスト**
 
 ```jsonc
 {
-  "name": "週1ジム",
-  "destination_name": "GOLD'S GYM 渋谷",
-  "destination_address": "東京都渋谷区...",
-  "destination_lat": null,
-  "destination_lon": null,
-  "travel_mode": "walking",
-  "memo": "ウェアを忘れずに",
-  "tag_ids": [1]
+  "name": "仕事の日ルーティン",
+  "category_id": 1,
+  "schedules": [
+    {
+      "title": "朝の準備",
+      "start_time": "07:30",
+      "end_time": "08:30",
+      "memo": "スーツ着用",
+      "tag_ids": [1],
+      "sort_order": 1
+    },
+    {
+      "title": "オフィス出勤",
+      "start_time": "09:00",
+      "end_time": "18:00",
+      "destination_name": "本社オフィス",
+      "destination_address": "東京都千代田区...",
+      "destination_lat": 35.681,
+      "destination_lon": 139.767,
+      "travel_mode": "transit",
+      "sort_order": 2
+    }
+  ]
 }
 ```
 
@@ -487,25 +547,7 @@ ISO 8601（JST offset 付き）を使用します。
 
 ### GET /templates/{id} — テンプレート詳細取得
 
-**レスポンス `200 OK`**
-
-```jsonc
-{
-  "id": 1,
-  "name": "週1ジム",
-  "destination_name": "GOLD'S GYM 渋谷",
-  "destination_address": "東京都渋谷区...",
-  "destination_lat": null,
-  "destination_lon": null,
-  "travel_mode": "walking",
-  "memo": "ウェアを忘れずに",
-  "tags": [
-    { "id": 1, "name": "運動" }
-  ],
-  "created_at": "2026-03-01T09:00:00+09:00",
-  "updated_at": "2026-03-01T09:00:00+09:00"
-}
-```
+**レスポンス `200 OK`** — `GET /templates` の単一オブジェクトと同形式
 
 ---
 
@@ -518,20 +560,14 @@ ISO 8601（JST offset 付き）を使用します。
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|----|----|------|
 | `name` | `string` | 任意 | テンプレート名 |
-| `destination_name` | `string` | 任意 | 目的地名 |
-| `destination_address` | `string` | 任意 | 目的地住所 |
-| `destination_lat` | `float` | 任意 | 目的地の緯度 |
-| `destination_lon` | `float` | 任意 | 目的地の経度 |
-| `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
-| `memo` | `string` | 任意 | 準備メモ |
-| `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+| `category_id` | `integer` | 任意 | TemplateCategory の ID。null で解除 |
+| `schedules` | `array` | 任意 | 全件置き換え（送信した配列で上書き） |
 
 **リクエスト**
 
 ```jsonc
 {
-  "name": "週2ジム",
-  "memo": "プロテインも持参"
+  "name": "仕事の日（短縮）"
 }
 ```
 
@@ -545,30 +581,61 @@ ISO 8601（JST offset 付き）を使用します。
 
 ---
 
-### POST /templates/{id}/apply — テンプレートから予定を作成
+### POST /templates/{id}/apply — テンプレートを指定日付に適用して予定を一括作成
 
-テンプレートの内容をコピーして新しい Schedule を作成します。
+テンプレート内のすべての TemplateSchedule の `start_time` / `end_time` を指定日付と組み合わせて、複数の Schedule を一括作成します。
 テンプレートを後から編集しても作成済み予定には影響しません（データモデル草案 § 設計メモ 参照）。
 
 **リクエストボディ**
 
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|----|----|------|
-| `title` | `string` | ○ | 作成する予定のタイトル |
-| `start_at` | `string` | ○ | 開始日時（ISO 8601 JST） |
-| `end_at` | `string` | 任意 | 終了日時（ISO 8601 JST）。nullable |
+| `date` | `string (YYYY-MM-DD)` | ○ | 適用する日付。`start_time` / `end_time` と組み合わせて Schedule の `start_at` / `end_at` を生成 |
 
 **リクエスト**
 
 ```jsonc
 {
-  "title": "ジムに行く",
-  "start_at": "2026-03-05T20:00:00+09:00",
-  "end_at": null                              // nullable
+  "date": "2026-03-10"
 }
 ```
 
-**レスポンス `201 Created`** — 作成された Schedule オブジェクト（`GET /schedules/{id}` と同形式）
+**レスポンス `201 Created`** — 作成された Schedule オブジェクトの配列
+
+```jsonc
+[
+  {
+    "id": 101,
+    "title": "朝の準備",
+    "start_at": "2026-03-10T07:30:00+09:00",
+    "end_at": "2026-03-10T08:30:00+09:00",
+    "destination_name": null,
+    "destination_address": null,
+    "destination_lat": null,
+    "destination_lon": null,
+    "travel_mode": null,
+    "memo": "スーツ着用",
+    "tags": [{ "id": 1, "name": "仕事" }],
+    "created_at": "2026-03-01T09:00:00+09:00",
+    "updated_at": "2026-03-01T09:00:00+09:00"
+  },
+  {
+    "id": 102,
+    "title": "オフィス出勤",
+    "start_at": "2026-03-10T09:00:00+09:00",
+    "end_at": "2026-03-10T18:00:00+09:00",
+    "destination_name": "本社オフィス",
+    "destination_address": "東京都千代田区...",
+    "destination_lat": 35.681,
+    "destination_lon": 139.767,
+    "travel_mode": "transit",
+    "memo": null,
+    "tags": [],
+    "created_at": "2026-03-01T09:00:00+09:00",
+    "updated_at": "2026-03-01T09:00:00+09:00"
+  }
+]
+```
 
 ---
 
@@ -670,8 +737,7 @@ ISO 8601（JST offset 付き）を使用します。
 {
   "weather_enabled": true,
   "weather_notify_time": "07:00",
-  "reminder_enabled": true,
-  "reminder_minutes_before": 30
+  "reminder_enabled": true
 }
 ```
 
@@ -688,14 +754,13 @@ ISO 8601（JST offset 付き）を使用します。
 | `weather_enabled` | `boolean` | 任意 | 天気通知の有効/無効 |
 | `weather_notify_time` | `string` | 任意 | 天気通知時刻（`HH:MM` 形式） |
 | `reminder_enabled` | `boolean` | 任意 | 出発リマインダーの有効/無効 |
-| `reminder_minutes_before` | `integer` | 任意 | 出発の何分前に通知するか |
 
 **リクエスト**
 
 ```jsonc
 {
   "weather_notify_time": "08:00",
-  "reminder_minutes_before": 60
+  "reminder_enabled": true
 }
 ```
 
@@ -705,8 +770,7 @@ ISO 8601（JST offset 付き）を使用します。
 {
   "weather_enabled": true,
   "weather_notify_time": "08:00",
-  "reminder_enabled": true,
-  "reminder_minutes_before": 60
+  "reminder_enabled": true
 }
 ```
 
@@ -845,33 +909,69 @@ ISO 8601（JST offset 付き）を使用します。
 
 ---
 
-## 未決定エンドポイント（TBD）
+## Suggestions（提案）
 
-以下のエンドポイントは前提となる選定・定義が完了していないため、本ドキュメントへの記載を保留します。
-各ブロッカーが解消次第、追記してください。
+> Gemini API を使った AI 提案。今日の提案と予定ごとの提案の 2 エンドポイント。
 
-### Suggestions（提案）
+### GET /suggestions/today — 今日の提案
 
-`GET /suggestions` は提案ロジック（ルールベースの定義）が確定していないため保留。
+クエリパラメータなし（ログインユーザーの今日の予定と自宅座標の天気をサーバーが自動取得）。
 
-例: 「天気=雨 かつ タグ=デート → 持ち物: 折りたたみ傘」 等のルール定義が決まり次第、レスポンスの構造を設計して追記します。
+**バックエンド処理:**
+1. ログインユーザーの今日の Schedule 一覧を取得
+2. `GET /weather` で自宅座標の今日の天気を取得
+3. 予定情報 + 天気情報を Gemini API に渡し、服装・持ち物の提案を生成
 
-**ブロッカー:** 提案ルール定義（ルールベース内容）の確定
+**レスポンス `200 OK`**
+
+```jsonc
+{
+  "date": "2026-03-10",
+  "suggestion": "今日は最高気温12℃で午後から雨の予報です。折りたたみ傘を持参し、暖かいコートを着ていくことをおすすめします。夕方に会食があるため、スマートカジュアルな服装が適しています。",
+  "weather_summary": {
+    "temp_c": 12.5,
+    "condition": "Partly cloudy",
+    "chance_of_rain": 60
+  }
+}
+```
 
 ---
 
-### Tags（タグ）
+### GET /suggestions/{schedule_id} — 予定ごとの提案
 
-タグ選択 UI には `GET /tags`（タグ一覧取得）が必要ですが、`api仕様.md` には未記載です。
+**バックエンド処理:**
+1. 指定した Schedule を取得
+2. Schedule の目的地・タグ・メモ情報を Gemini API に渡し、目的地周辺スポット・その予定に関連したアドバイスを生成
 
-`api仕様.md` へのエンドポイント追記と、タグのスコープ（グローバル / per-user）確定後に本ドキュメントへ追記します。
+**レスポンス `200 OK`**
 
-**ブロッカー:** `データモデル草案.md § A-1`（タグスコープ）および `§ A-2`（タグ作成権限）のチーム確認
+```jsonc
+{
+  "schedule_id": 1,
+  "suggestion": "銀座鮨さいとうの周辺には、食後に立ち寄れる老舗バーや手土産に最適な和菓子店があります。会食前に近くのギャラリーで時間を潰すのもおすすめです。手土産は資生堂パーラーのケーキが喜ばれます。"
+}
+```
+
+**エラー:** 予定が見つからない場合は `NOT_FOUND (404)`
 
 ---
 
-## api仕様.md への指摘事項
+## Tags（タグ）
 
-| 項目 | 内容 |
-|------|------|
-| **Tags エンドポイントの欠落** | タグ選択 UI のために `GET /tags`（タグ一覧）が必要だが `api仕様.md` に記載なし。`データモデル草案.md` では Tag エンティティが定義済みのため、エンドポイントを追加要検討 |
+> タグはグローバル（全ユーザー共通）。seed データで事前定義。`POST /tags` は実装しない（`データモデル草案.md § A-1, A-2` 参照）。
+
+### GET /tags — タグ一覧取得
+
+**レスポンス `200 OK`**
+
+```jsonc
+[
+  { "id": 1, "name": "仕事" },
+  { "id": 2, "name": "会食" },
+  { "id": 3, "name": "デート" },
+  { "id": 4, "name": "運動" }
+]
+```
+
+---
