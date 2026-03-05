@@ -2,7 +2,7 @@
 
 > **目的:** GCPを使ったインフラ構成を設計し、CI/CDパイプラインを含むアーキテクチャを確定する。
 > **作成日:** 2026-03-05
-> **前提:** `docs/インフラ設計調査.md` の調査結果を踏まえ、GCPでの構築に決定済み。
+> **前提:** `docs/research/インフラ設計調査.md` の調査結果を踏まえ、GCPでの構築に決定済み。
 
 ---
 
@@ -404,6 +404,6 @@ Cloud Runのstartup probeで使用する。
 
 ## 参考ドキュメント
 
-- `docs/インフラ設計調査.md` — デプロイ先・DB・プッシュ通知の技術選定調査
-- `backend/docs/経路探索API設計調査.md` — OTP2 の API設計・GraphQL クエリ設計
-- `docs/api/外部経路探索API調査.md` — OTP2 セットアップ手順・GTFS状況
+- `docs/research/インフラ設計調査.md` — デプロイ先・DB・プッシュ通知の技術選定調査
+- `backend/docs/spec/経路探索API設計.md` — OTP2 の API設計・GraphQL クエリ設計
+- `docs/research/api/外部経路探索API調査.md` — OTP2 セットアップ手順・GTFS状況

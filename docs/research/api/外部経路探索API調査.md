@@ -211,7 +211,7 @@ TrainGTFSGenerator を使用した場合、首都圏 22 事業者に対応：
 
 OTP2（または他の API）を選定した後、以下を確定して各設計ドキュメントに反映する：
 
-- `travel_mode` ENUM 値と API の mode 値のマッピング（`データモデル草案.md § B-1` の仕様確認事項を解消）
+- `travel_mode` ENUM 値と API の mode 値のマッピング（`backend/docs/spec/データモデル.md § B-1` の仕様確認事項を解消）
 - `POST /routes/search` レスポンス構造（`API詳細設計.md § Routes` の保留事項を解消）
 - `POST /routes/departure-time` レスポンス構造（同上）
 - OTP2 採用の場合、GraphQL クエリの確定（`planConnection` vs `plan` クエリの選択）
@@ -236,6 +236,6 @@ OTP2（または他の API）を選定した後、以下を確定して各設計
 - `../learn-OpenTripPlanner/OTP2-investigation-report.md` — OTP2 詳細調査レポート
 - `../learn-OpenTripPlanner/開発計画.md` — OTP2 実装チェックリスト（Phase 0〜3）
 - `backend/app/api/api仕様.md § 経路 (Routes)` — エンドポイント一覧と想定リクエスト項目
-- `backend/docs/API詳細設計.md § Routes` — 保留中の詳細設計
-- `backend/docs/データモデル草案.md § B-1` — travel_mode ENUM 値の仕様確認事項
-- `backend/docs/開発スケジュール.md § Phase 0 > Routes` — 意思決定タスク
+- `backend/docs/spec/API詳細設計.md § Routes` — 保留中の詳細設計
+- `backend/docs/spec/データモデル.md § B-1` — travel_mode ENUM 値の仕様確認事項
+- `backend/docs/tasks/開発タスク.md § Phase 0 > Routes` — 意思決定タスク

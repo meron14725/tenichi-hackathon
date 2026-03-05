@@ -1,4 +1,4 @@
-# 経路探索API設計調査
+# 経路探索API設計
 
 > **目的:** Phase 7（Routes 実装）のブロッカー解消のため、OTP2 を使った経路探索 API の入出力設計を整理する。
 > **作成日:** 2026-03-01
@@ -556,7 +556,7 @@ OTP2_GRAPHQL_URL=http://localhost:8080/otp/gtfs/v1
 | T-2 | OTP2 のデプロイ先決定（Cloud Run / GCE / その他） | 高 | **後回し** — Phase 7 実装直前に決定 |
 | T-3 | 京王線 GTFS 未生成の対応方針（スコープ内/外の確認） | ✅ 解消 | `Keio-Train.gtfs.zip` は生成・対応済み |
 | T-4 | transit 以外の travel_mode 対応方針 | ✅ 完了 | 全4値対応（§ 8.3 参照） |
-| T-5 | OTP2 グラフビルド実行（セットアップ手順は `docs/api/外部経路探索API調査.md § 6` 参照） | ✅ 解消 | `graph.obj`（709 MB）ビルド済み |
+| T-5 | OTP2 グラフビルド実行（セットアップ手順は `docs/research/api/外部経路探索API調査.md § 6` 参照） | ✅ 解消 | `graph.obj`（709 MB）ビルド済み |
 | T-6 | 動作検証クエリの実行（「2026-03-10 に渋谷へ 19:00 着」で `leave_home_at` が正しく返るか） | 高 | **残存** — デプロイ先確定後に実施 |
 
 ---
@@ -573,8 +573,8 @@ OTP2_GRAPHQL_URL=http://localhost:8080/otp/gtfs/v1
 
 ## 参考ドキュメント（相互リンク）
 
-- `docs/api/外部経路探索API調査.md` — API 候補比較・OTP2 機能検証・GTFS 状況・セットアップ手順
+- `docs/research/api/外部経路探索API調査.md` — API 候補比較・OTP2 機能検証・GTFS 状況・セットアップ手順
 - `../learn-OpenTripPlanner/OTP2-investigation-report.md` — GraphQL クエリサンプル・詳細検証結果
-- `backend/docs/データモデル草案.md` — UserSettings（home_lat/lon, preparation_minutes）・Schedule のデータ定義
-- `backend/docs/API詳細設計.md` — 既存エンドポイント設計（Routes は本ドキュメントで解消）
+- `backend/docs/spec/データモデル.md` — UserSettings（home_lat/lon, preparation_minutes）・Schedule のデータ定義
+- `backend/docs/spec/API詳細設計.md` — 既存エンドポイント設計（Routes は本ドキュメントで解消）
 - `backend/app/api/api仕様.md` — Routes エンドポイント一覧
