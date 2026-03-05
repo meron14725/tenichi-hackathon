@@ -4,7 +4,7 @@
 > `backend/app/api/api仕様.md` はエンドポイント一覧として維持します。
 > 各エンドポイントの具体的なリクエスト / レスポンス JSON 仕様は本ドキュメントで管理します。
 >
-> データモデルの詳細は `backend/docs/データモデル草案.md` を参照してください。
+> データモデルの詳細は `backend/docs/spec/データモデル.md` を参照してください。
 
 ---
 
@@ -119,7 +119,7 @@ ISO 8601（JST offset 付き）を使用します。
 }
 ```
 
-> `UserSettings` / `NotificationSettings` はユーザー登録時に同一トランザクションで作成します（`データモデル草案.md § D-1` 参照）。`UserSettings` の各フィールドは登録時に必須入力です。
+> `UserSettings` / `NotificationSettings` はユーザー登録時に同一トランザクションで作成します（`データモデル.md § D-1` 参照）。`UserSettings` の各フィールドは登録時に必須入力です。
 
 ---
 
@@ -584,7 +584,7 @@ ISO 8601（JST offset 付き）を使用します。
 ### POST /templates/{id}/apply — テンプレートを指定日付に適用して予定を一括作成
 
 テンプレート内のすべての TemplateSchedule の `start_time` / `end_time` を指定日付と組み合わせて、複数の Schedule を一括作成します。
-テンプレートを後から編集しても作成済み予定には影響しません（データモデル草案 § 設計メモ 参照）。
+テンプレートを後から編集しても作成済み予定には影響しません（データモデル § 設計メモ 参照）。
 
 **リクエストボディ**
 
@@ -815,7 +815,7 @@ ISO 8601（JST offset 付き）を使用します。
 
 ## Routes（経路）
 
-> **使用外部 API:** OTP2（OpenTripPlanner 2）— 詳細は `backend/docs/経路探索API設計調査.md` を参照
+> **使用外部 API:** OTP2（OpenTripPlanner 2）— 詳細は `backend/docs/spec/経路探索API設計.md` を参照
 
 ### POST /routes/departure-time — 出発時刻逆算・経路候補取得
 
@@ -959,7 +959,7 @@ ISO 8601（JST offset 付き）を使用します。
 
 ## Tags（タグ）
 
-> タグはグローバル（全ユーザー共通）。seed データで事前定義。`POST /tags` は実装しない（`データモデル草案.md § A-1, A-2` 参照）。
+> タグはグローバル（全ユーザー共通）。seed データで事前定義。`POST /tags` は実装しない（`データモデル.md § A-1, A-2` 参照）。
 
 ### GET /tags — タグ一覧取得
 
