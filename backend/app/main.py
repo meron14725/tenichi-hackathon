@@ -4,6 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.healthz import router as healthz_router
+from app.api.schedule_lists import router as schedule_lists_router
+from app.api.schedules import router as schedules_router
+from app.api.tags import router as tags_router
+from app.api.templates import router as templates_router
 from app.api.users import router as users_router
 from app.config import settings
 from app.exceptions import (
@@ -31,3 +35,7 @@ app.add_exception_handler(Exception, generic_error_handler)
 app.include_router(healthz_router)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
+app.include_router(tags_router, prefix="/api/v1")
+app.include_router(schedules_router, prefix="/api/v1")
+app.include_router(schedule_lists_router, prefix="/api/v1")
+app.include_router(templates_router, prefix="/api/v1")

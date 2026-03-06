@@ -11,6 +11,3 @@ mypy
 pytest
 pytest-asyncio
 httpx
-
-# テスト用 SQLite ドライバ
-aiosqlite

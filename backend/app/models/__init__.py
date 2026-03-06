@@ -1,5 +1,24 @@
 from app.models.base import Base
 from app.models.refresh_token import RefreshToken
+from app.models.schedule import Schedule
+from app.models.schedule_list import PackingItem, ScheduleList
+from app.models.schedule_route import ScheduleRoute
+from app.models.tag import Tag
+from app.models.template import Template, TemplateCategory, TemplateSchedule
 from app.models.user import NotificationSettings, User, UserSettings
 
-__all__ = ["Base", "User", "UserSettings", "NotificationSettings", "RefreshToken"]
+__all__ = [
+    "Base",
+    "NotificationSettings",
+    "PackingItem",
+    "RefreshToken",
+    "Schedule",
+    "ScheduleList",
+    "ScheduleRoute",
+    "Tag",
+    "Template",
+    "TemplateCategory",
+    "TemplateSchedule",
+    "User",
+    "UserSettings",
+]

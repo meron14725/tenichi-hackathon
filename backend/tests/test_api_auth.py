@@ -2,16 +2,7 @@
 
 import pytest
 
-REGISTER_DATA = {
-    "email": "test@example.com",
-    "password": "password123",
-    "name": "Test User",
-    "home_address": "東京都渋谷区",
-    "home_lat": 35.6584,
-    "home_lon": 139.7015,
-    "preparation_minutes": 30,
-    "reminder_minutes_before": 15,
-}
+from tests.conftest import REGISTER_DATA, register_user
 
 
 @pytest.mark.asyncio
@@ -40,17 +31,19 @@ class TestRegister:
         response = await client.post("/api/v1/auth/register", json=invalid_data)
         assert response.status_code == 422
 
+    async def test_register_short_password(self, client):
+        short_pw_data = {**REGISTER_DATA, "email": "short@example.com", "password": "short"}
+        response = await client.post("/api/v1/auth/register", json=short_pw_data)
+        assert response.status_code == 422
+
 
 @pytest.mark.asyncio
 class TestLogin:
-    async def _register(self, client):
-        await client.post("/api/v1/auth/register", json=REGISTER_DATA)
-
     async def test_login_success(self, client):
-        await self._register(client)
+        await register_user(client)
         response = await client.post(
             "/api/v1/auth/login",
-            json={"email": "test@example.com", "password": "password123"},
+            json={"email": "test@example.com", "password": "Password123"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -59,7 +52,7 @@ class TestLogin:
         assert data["expires_in"] > 0
 
     async def test_login_wrong_password(self, client):
-        await self._register(client)
+        await register_user(client)
         response = await client.post(
             "/api/v1/auth/login",
             json={"email": "test@example.com", "password": "wrongpassword"},
@@ -70,19 +63,15 @@ class TestLogin:
     async def test_login_nonexistent_email(self, client):
         response = await client.post(
             "/api/v1/auth/login",
-            json={"email": "nobody@example.com", "password": "password123"},
+            json={"email": "nobody@example.com", "password": "Password123"},
         )
         assert response.status_code == 401
 
 
 @pytest.mark.asyncio
 class TestRefresh:
-    async def _register_and_get_tokens(self, client) -> dict:
-        response = await client.post("/api/v1/auth/register", json=REGISTER_DATA)
-        return response.json()
-
     async def test_refresh_success(self, client):
-        tokens = await self._register_and_get_tokens(client)
+        tokens = await register_user(client)
         response = await client.post(
             "/api/v1/auth/refresh",
             json={"refresh_token": tokens["refresh_token"]},
@@ -102,12 +91,8 @@ class TestRefresh:
 
 @pytest.mark.asyncio
 class TestLogout:
-    async def _register_and_get_tokens(self, client) -> dict:
-        response = await client.post("/api/v1/auth/register", json=REGISTER_DATA)
-        return response.json()
-
     async def test_logout_success(self, client):
-        tokens = await self._register_and_get_tokens(client)
+        tokens = await register_user(client)
         response = await client.post(
             "/api/v1/auth/logout",
             headers={"Authorization": f"Bearer {tokens['access_token']}"},
