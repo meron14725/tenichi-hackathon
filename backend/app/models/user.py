@@ -12,11 +12,14 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from app.models.refresh_token import RefreshToken  # noqa: F401
 
+# SQLite では BIGINT の autoincrement が動かないため INTEGER にフォールバック
+BigInt = BigInteger().with_variant(Integer, "sqlite")
+
 
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -33,9 +36,9 @@ class User(Base):
 class UserSettings(Base):
     __tablename__ = "user_settings"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+        BigInt, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     home_address: Mapped[str] = mapped_column(String(255), nullable=False)
     home_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
@@ -54,9 +57,9 @@ class UserSettings(Base):
 class NotificationSettings(Base):
     __tablename__ = "notification_settings"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+        BigInt, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     weather_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     weather_notify_time: Mapped[str] = mapped_column(Time, nullable=False, server_default="07:00:00")

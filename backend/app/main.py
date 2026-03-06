@@ -23,8 +23,8 @@ if settings.ENVIRONMENT == "development":
         allow_headers=["*"],
     )
 
-app.add_exception_handler(AppError, app_error_handler)
-app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
 app.add_exception_handler(Exception, generic_error_handler)
 
 app.include_router(healthz_router)
