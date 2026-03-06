@@ -88,10 +88,7 @@ async def refresh(db: AsyncSession, token: str) -> str:
     if refresh_token is None:
         raise AppError("UNAUTHORIZED", "Invalid refresh token", 401)
 
-    expires_at = (
-        refresh_token.expires_at if refresh_token.expires_at.tzinfo else refresh_token.expires_at.replace(tzinfo=UTC)
-    )
-    if expires_at < datetime.now(UTC):
+    if refresh_token.expires_at < datetime.now(UTC):
         raise AppError("UNAUTHORIZED", "Refresh token has expired", 401)
 
     access_token = create_access_token(refresh_token.user_id)

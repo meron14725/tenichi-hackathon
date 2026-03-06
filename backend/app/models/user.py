@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as dt
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Time, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Time, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from app.models.base import Base, BigInt
 
 if TYPE_CHECKING:
     from app.models.refresh_token import RefreshToken  # noqa: F401
-
-# SQLite では BIGINT の autoincrement が動かないため INTEGER にフォールバック
-BigInt = BigInteger().with_variant(Integer, "sqlite")
+    from app.models.schedule import Schedule  # noqa: F401
+    from app.models.schedule_list import ScheduleList  # noqa: F401
+    from app.models.template import Template  # noqa: F401
 
 
 class User(Base):
@@ -23,14 +23,17 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
     settings: Mapped[UserSettings] = relationship(back_populates="user")
     notification_settings: Mapped[NotificationSettings] = relationship(back_populates="user")
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user")
+    schedules: Mapped[list[Schedule]] = relationship(back_populates="user")
+    schedule_lists: Mapped[list[ScheduleList]] = relationship(back_populates="user")
+    templates: Mapped[list[Template]] = relationship(back_populates="user")
 
 
 class UserSettings(Base):
@@ -46,8 +49,8 @@ class UserSettings(Base):
     preparation_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     reminder_minutes_before: Mapped[int] = mapped_column(Integer, nullable=False)
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, server_default="Asia/Tokyo")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
@@ -62,10 +65,10 @@ class NotificationSettings(Base):
         BigInt, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     weather_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    weather_notify_time: Mapped[str] = mapped_column(Time, nullable=False, server_default="07:00:00")
+    weather_notify_time: Mapped[dt.time] = mapped_column(Time, nullable=False, server_default="07:00:00")
     reminder_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 

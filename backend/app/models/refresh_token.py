@@ -3,16 +3,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from app.models.base import Base, BigInt
 
 if TYPE_CHECKING:
     from app.models.user import User  # noqa: F401
-
-# SQLite では BIGINT の autoincrement が動かないため INTEGER にフォールバック
-BigInt = BigInteger().with_variant(Integer, "sqlite")
 
 
 class RefreshToken(Base):
