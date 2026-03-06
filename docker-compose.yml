@@ -4,15 +4,33 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://tenichi:tenichi@db:5432/tenichi
       - OTP2_GRAPHQL_URL=http://otp2:8080/otp/gtfs/v1
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - WEATHERAPI_KEY=${WEATHERAPI_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
+      db:
+        condition: service_healthy
       otp2:
         condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tenichi
+      POSTGRES_PASSWORD: tenichi
+      POSTGRES_DB: tenichi
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tenichi -d tenichi"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   otp2:
     build: ./otp2
@@ -24,3 +42,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
+
+volumes:
+  postgres_data:
