@@ -524,6 +524,41 @@ OTP2_GRAPHQL_URL=http://localhost:8080/otp/gtfs/v1
 `POST /routes/departure-time` は `UserSettings.home_lat` / `home_lon` を必須として使用する。
 これらが `null` の場合はエラーを返す。
 
+### 8.7 ルート選択・保存フロー
+
+予定作成時、モバイルアプリが OTP2 を使った経路探索 API を叩き、返された複数ルート候補からユーザーが1つを選択して保存するフロー。
+
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant App as モバイルアプリ
+    participant Backend as バックエンド
+    participant OTP2
+
+    User->>App: 予定作成画面で目的地・到着時刻を入力
+    App->>Backend: POST /routes/search<br/>(destination, arrival_time, travel_mode)
+    Backend->>OTP2: GraphQL planConnection
+    OTP2-->>Backend: 複数ルート候補（itineraries）
+    Backend-->>App: itineraries[]（3〜5件）
+    App->>User: ルート候補を表示
+    User->>App: ルートを1つ選択
+    App->>Backend: POST /schedules（予定作成）
+    Backend-->>App: Schedule オブジェクト
+    App->>Backend: POST /schedules/{id}/route<br/>(route_data: 選択した itinerary)
+    Backend-->>App: ScheduleRoute オブジェクト
+```
+
+**保存データ:**
+- 選択された itinerary の JSON 全体を `ScheduleRoute.route_data`（JSONB）に保存
+- `departure_time` / `arrival_time` / `duration_minutes` を非正規化して検索用に保持
+- 1予定につき1ルートのみ保存可能（再選択時は置換）
+
+**関連エンドポイント:**
+- `POST /routes/search` — 経路候補の取得（本ドキュメント § 5.1）
+- `POST /schedules/{id}/route` — 選択ルートの保存（`API詳細設計.md` 参照）
+- `GET /schedules/{id}/route` — 選択ルートの取得
+- `DELETE /schedules/{id}/route` — 選択ルートの削除
+
 ---
 
 ## 9. エラーコード一覧

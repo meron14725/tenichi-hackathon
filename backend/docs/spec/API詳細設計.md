@@ -323,9 +323,16 @@ ISO 8601（JST offset 付き）を使用します。
     "destination_lon": 139.764,
     "travel_mode": "transit",
     "memo": "手土産を持参",
+    "schedule_list_id": 5,
     "tags": [
       { "id": 2, "name": "会食" }
     ],
+    "selected_route": {
+      "id": 10,
+      "departure_time": "2026-03-10T18:12:00+09:00",
+      "arrival_time": "2026-03-10T18:58:00+09:00",
+      "duration_minutes": 46
+    },
     "created_at": "2026-03-01T09:00:00+09:00",
     "updated_at": "2026-03-01T09:00:00+09:00"
   }
@@ -350,6 +357,7 @@ ISO 8601（JST offset 付き）を使用します。
 | `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
 | `memo` | `string` | 任意 | 準備メモ。nullable |
 | `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+| `schedule_list_id` | `integer` | 任意 | 所属する予定リストの ID。nullable |
 
 **リクエスト**
 
@@ -364,7 +372,8 @@ ISO 8601（JST offset 付き）を使用します。
   "destination_lon": 139.764,                 // nullable
   "travel_mode": "transit",
   "memo": "手土産を持参",                      // nullable
-  "tag_ids": [2]                              // 既存 Tag の ID 配列
+  "tag_ids": [2],                              // 既存 Tag の ID 配列
+  "schedule_list_id": 5                        // nullable。予定リストに追加する場合
 }
 ```
 
@@ -388,9 +397,16 @@ ISO 8601（JST offset 付き）を使用します。
   "destination_lon": 139.764,
   "travel_mode": "transit",
   "memo": "手土産を持参",
+  "schedule_list_id": 5,
   "tags": [
     { "id": 2, "name": "会食" }
   ],
+  "selected_route": {
+    "id": 10,
+    "departure_time": "2026-03-10T18:12:00+09:00",
+    "arrival_time": "2026-03-10T18:58:00+09:00",
+    "duration_minutes": 46
+  },
   "created_at": "2026-03-01T09:00:00+09:00",
   "updated_at": "2026-03-01T09:00:00+09:00"
 }
@@ -416,6 +432,7 @@ ISO 8601（JST offset 付き）を使用します。
 | `travel_mode` | `string` | 任意 | 移動手段。`transit` / `walking` / `cycling` / `driving` |
 | `memo` | `string` | 任意 | 準備メモ。nullable |
 | `tag_ids` | `array[integer]` | 任意 | 付与するタグの ID 配列 |
+| `schedule_list_id` | `integer` | 任意 | 所属する予定リストの ID。nullable |
 
 **リクエスト**
 
@@ -432,6 +449,304 @@ ISO 8601（JST offset 付き）を使用します。
 ---
 
 ### DELETE /schedules/{id} — 予定削除
+
+**レスポンス `204 No Content`**
+
+---
+
+### POST /schedules/{id}/route — 選択ルートを予定に紐づけて保存
+
+モバイルアプリが `POST /routes/search` で取得した複数ルート候補から、ユーザーが選択した1つのルートを予定に紐づけて保存する。
+1予定につき1ルートのみ保存可能（既存ルートがある場合は置換）。
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `route_data` | `object` | ○ | OTP2 から返された itinerary オブジェクト（`/routes/search` の `itineraries[]` の1要素） |
+
+**リクエスト**
+
+```jsonc
+{
+  "route_data": {
+    "departure_time": "2026-03-10T18:12:00+09:00",
+    "arrival_time": "2026-03-10T18:58:00+09:00",
+    "duration_minutes": 46,
+    "number_of_transfers": 1,
+    "legs": [
+      {
+        "mode": "WALK",
+        "from_name": "出発地",
+        "to_name": "高円寺駅",
+        "departure_time": "2026-03-10T18:12:00+09:00",
+        "arrival_time": "2026-03-10T18:20:00+09:00",
+        "duration_minutes": 8
+      },
+      {
+        "mode": "RAIL",
+        "route_short_name": "中央線（快速）",
+        "agency_name": "JR東日本",
+        "headsign": "東京方面",
+        "from_name": "高円寺駅",
+        "to_name": "新宿駅",
+        "departure_time": "2026-03-10T18:23:00+09:00",
+        "arrival_time": "2026-03-10T18:29:00+09:00",
+        "duration_minutes": 6
+      }
+    ]
+  }
+}
+```
+
+**レスポンス `201 Created`**
+
+```jsonc
+{
+  "id": 10,
+  "schedule_id": 1,
+  "departure_time": "2026-03-10T18:12:00+09:00",
+  "arrival_time": "2026-03-10T18:58:00+09:00",
+  "duration_minutes": 46,
+  "route_data": { /* リクエストで送信した itinerary オブジェクト */ },
+  "created_at": "2026-03-06T15:00:00+09:00"
+}
+```
+
+> 既にルートが紐づいている場合は置換されます。予定が見つからない場合は `NOT_FOUND (404)` を返します。
+
+---
+
+### GET /schedules/{id}/route — 予定の選択ルート取得
+
+**レスポンス `200 OK`**
+
+```jsonc
+{
+  "id": 10,
+  "schedule_id": 1,
+  "departure_time": "2026-03-10T18:12:00+09:00",
+  "arrival_time": "2026-03-10T18:58:00+09:00",
+  "duration_minutes": 46,
+  "route_data": {
+    "departure_time": "2026-03-10T18:12:00+09:00",
+    "arrival_time": "2026-03-10T18:58:00+09:00",
+    "duration_minutes": 46,
+    "number_of_transfers": 1,
+    "legs": [ /* 区間情報 */ ]
+  },
+  "created_at": "2026-03-06T15:00:00+09:00"
+}
+```
+
+> ルートが未選択の場合は `NOT_FOUND (404)` を返します。
+
+---
+
+### DELETE /schedules/{id}/route — 予定の選択ルート削除
+
+**レスポンス `204 No Content`**
+
+---
+
+## ScheduleLists（予定リスト）
+
+> 予定リストは「1日の予定をまとめた名前付きリスト」。カレンダー上に表示され、所属する予定（Schedule）群と持ち物リスト（PackingItem）を持つ。
+> Template（再利用可能な雛形）とは別概念。Template を apply した際に ScheduleList を自動生成することも可能。
+
+### GET /schedule-lists — 予定リスト一覧取得
+
+**クエリパラメータ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `start_date` | `YYYY-MM-DD` | 任意 | この日以降の予定リスト |
+| `end_date` | `YYYY-MM-DD` | 任意 | この日以前の予定リスト |
+
+**レスポンス `200 OK`**
+
+```jsonc
+[
+  {
+    "id": 5,
+    "name": "出社の日",
+    "date": "2026-03-10",
+    "schedules": [
+      {
+        "id": 1,
+        "title": "会食",
+        "start_at": "2026-03-10T19:00:00+09:00",
+        "end_at": "2026-03-10T21:00:00+09:00"
+      }
+    ],
+    "packing_items": [
+      { "id": 1, "name": "折りたたみ傘", "is_checked": false, "sort_order": 1 },
+      { "id": 2, "name": "名刺", "is_checked": true, "sort_order": 2 }
+    ],
+    "created_at": "2026-03-01T09:00:00+09:00",
+    "updated_at": "2026-03-01T09:00:00+09:00"
+  }
+]
+```
+
+---
+
+### POST /schedule-lists — 予定リスト作成
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `name` | `string` | ○ | 予定リスト名 |
+| `date` | `string (YYYY-MM-DD)` | ○ | 対象日付 |
+| `packing_items` | `array` | 任意 | 初期持ち物の配列 |
+| `packing_items[].name` | `string` | ○ | 持ち物名 |
+| `packing_items[].sort_order` | `integer` | 任意 | 表示順 |
+
+**リクエスト**
+
+```jsonc
+{
+  "name": "出社の日",
+  "date": "2026-03-10",
+  "packing_items": [
+    { "name": "折りたたみ傘", "sort_order": 1 },
+    { "name": "名刺", "sort_order": 2 }
+  ]
+}
+```
+
+**レスポンス `201 Created`** — 作成された ScheduleList オブジェクト（`GET /schedule-lists/{id}` と同形式）
+
+---
+
+### GET /schedule-lists/{id} — 予定リスト詳細取得
+
+所属する予定一覧と持ち物リストを含む。
+
+**レスポンス `200 OK`**
+
+```jsonc
+{
+  "id": 5,
+  "name": "出社の日",
+  "date": "2026-03-10",
+  "schedules": [
+    {
+      "id": 1,
+      "title": "会食",
+      "start_at": "2026-03-10T19:00:00+09:00",
+      "end_at": "2026-03-10T21:00:00+09:00",
+      "destination_name": "銀座 鮎さいとう",
+      "travel_mode": "transit",
+      "tags": [{ "id": 2, "name": "会食" }],
+      "selected_route": {
+        "id": 10,
+        "departure_time": "2026-03-10T18:12:00+09:00",
+        "arrival_time": "2026-03-10T18:58:00+09:00",
+        "duration_minutes": 46
+      }
+    }
+  ],
+  "packing_items": [
+    { "id": 1, "name": "折りたたみ傘", "is_checked": false, "sort_order": 1 },
+    { "id": 2, "name": "名刺", "is_checked": true, "sort_order": 2 }
+  ],
+  "created_at": "2026-03-01T09:00:00+09:00",
+  "updated_at": "2026-03-01T09:00:00+09:00"
+}
+```
+
+---
+
+### PUT /schedule-lists/{id} — 予定リスト更新
+
+部分更新（PATCH セマンティクス）。変更したいフィールドのみ送信可。
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `name` | `string` | 任意 | 予定リスト名 |
+| `date` | `string (YYYY-MM-DD)` | 任意 | 対象日付 |
+
+**レスポンス `200 OK`** — 更新後の ScheduleList オブジェクト（`GET /schedule-lists/{id}` と同形式）
+
+---
+
+### DELETE /schedule-lists/{id} — 予定リスト削除
+
+**レスポンス `204 No Content`**
+
+> 予定リストを削除しても、所属する Schedule は削除されません（`schedule_list_id` が `null` になる）。持ち物（PackingItem）はカスケード削除されます。
+
+---
+
+### POST /schedule-lists/{id}/packing-items — 持ち物追加
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `name` | `string` | ○ | 持ち物名 |
+| `sort_order` | `integer` | 任意 | 表示順 |
+
+**リクエスト**
+
+```jsonc
+{
+  "name": "手土産",
+  "sort_order": 3
+}
+```
+
+**レスポンス `201 Created`**
+
+```jsonc
+{
+  "id": 3,
+  "name": "手土産",
+  "is_checked": false,
+  "sort_order": 3
+}
+```
+
+---
+
+### PUT /schedule-lists/{id}/packing-items/{item_id} — 持ち物更新
+
+部分更新（PATCH セマンティクス）。
+
+**リクエストボディ**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|----|----|------|
+| `name` | `string` | 任意 | 持ち物名 |
+| `is_checked` | `boolean` | 任意 | チェック状態 |
+| `sort_order` | `integer` | 任意 | 表示順 |
+
+**リクエスト**
+
+```jsonc
+{
+  "is_checked": true
+}
+```
+
+**レスポンス `200 OK`**
+
+```jsonc
+{
+  "id": 1,
+  "name": "折りたたみ傘",
+  "is_checked": true,
+  "sort_order": 1
+}
+```
+
+---
+
+### DELETE /schedule-lists/{id}/packing-items/{item_id} — 持ち物削除
 
 **レスポンス `204 No Content`**
 
