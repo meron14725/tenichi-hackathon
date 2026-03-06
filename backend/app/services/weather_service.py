@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from app.config import settings
 from app.exceptions import AppError
+
+logger = logging.getLogger(__name__)
 
 WEATHERAPI_BASE = "https://api.weatherapi.com/v1"
 
@@ -18,7 +22,7 @@ async def _fetch_forecast(
     """WeatherAPI.com の forecast.json を呼び出す."""
     if not settings.WEATHERAPI_KEY:
         raise AppError(
-            "EXTERNAL_SERVICE_ERROR",
+            "WEATHER_UNAVAILABLE",
             "Weather API key is not configured",
             503,
         )
@@ -38,21 +42,34 @@ async def _fetch_forecast(
                 params=params,
                 timeout=10.0,
             )
+            if resp.status_code != 200:
+                logger.warning(
+                    "WeatherAPI returned status %d: %s",
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                raise AppError(
+                    "WEATHER_UNAVAILABLE",
+                    "Weather API request failed",
+                    502,
+                )
+            return resp.json()
+    except AppError:
+        raise
     except httpx.HTTPError:
+        logger.exception("WeatherAPI connection error")
         raise AppError(
-            "EXTERNAL_SERVICE_ERROR",
+            "WEATHER_UNAVAILABLE",
             "Weather API is unavailable",
             502,
         ) from None
-
-    if resp.status_code != 200:
+    except (KeyError, ValueError) as exc:
+        logger.exception("WeatherAPI response parse error")
         raise AppError(
-            "EXTERNAL_SERVICE_ERROR",
-            "Weather API request failed",
+            "WEATHER_UNAVAILABLE",
+            "Weather API returned unexpected response",
             502,
-        )
-
-    return resp.json()
+        ) from exc
 
 
 def _build_location(data: dict) -> dict:
@@ -75,17 +92,38 @@ def _build_day_weather(day: dict, location: dict) -> dict:
     }
 
 
+def _build_forecast_day(day: dict) -> dict:
+    d = day["day"]
+    return {
+        "date": day["date"],
+        "avg_temp_c": d["avgtemp_c"],
+        "max_temp_c": d["maxtemp_c"],
+        "min_temp_c": d["mintemp_c"],
+        "condition": d["condition"]["text"],
+        "condition_icon_url": d["condition"]["icon"],
+        "chance_of_rain": int(d["daily_chance_of_rain"]),
+    }
+
+
 async def get_weather(lat: float, lon: float, date: dt.date | None = None) -> dict:
     """指定日時・場所の天気を取得する."""
-    target = date.isoformat() if date else dt.date.today().isoformat()
+    target = date.isoformat() if date else dt.datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat()
     q = f"{lat},{lon}"
 
     data = await _fetch_forecast(q, days=3, target_date=target)
 
-    forecast_days = data["forecast"]["forecastday"]
-    for day in forecast_days:
-        if day["date"] == target:
-            return _build_day_weather(day, _build_location(data))
+    try:
+        forecast_days = data["forecast"]["forecastday"]
+        for day in forecast_days:
+            if day["date"] == target:
+                return _build_day_weather(day, _build_location(data))
+    except KeyError:
+        logger.exception("WeatherAPI response structure error")
+        raise AppError(
+            "WEATHER_UNAVAILABLE",
+            "Weather API returned unexpected response",
+            502,
+        ) from None
 
     raise AppError(
         "VALIDATION_ERROR",
@@ -99,21 +137,16 @@ async def get_forecast(lat: float, lon: float) -> dict:
     q = f"{lat},{lon}"
 
     data = await _fetch_forecast(q, days=3)
-    location = _build_location(data)
 
-    forecast = []
-    for day in data["forecast"]["forecastday"]:
-        d = day["day"]
-        forecast.append(
-            {
-                "date": day["date"],
-                "avg_temp_c": d["avgtemp_c"],
-                "max_temp_c": d["maxtemp_c"],
-                "min_temp_c": d["mintemp_c"],
-                "condition": d["condition"]["text"],
-                "condition_icon_url": d["condition"]["icon"],
-                "chance_of_rain": int(d["daily_chance_of_rain"]),
-            }
-        )
+    try:
+        location = _build_location(data)
+        forecast = [_build_forecast_day(day) for day in data["forecast"]["forecastday"]]
+    except KeyError:
+        logger.exception("WeatherAPI response structure error")
+        raise AppError(
+            "WEATHER_UNAVAILABLE",
+            "Weather API returned unexpected response",
+            502,
+        ) from None
 
     return {"location": location, "forecast": forecast}

@@ -12,8 +12,8 @@ router = APIRouter(prefix="/weather", tags=["weather"])
 
 @router.get("", response_model=WeatherResponse)
 async def get_weather(
-    lat: float = Query(..., description="緯度"),
-    lon: float = Query(..., description="経度"),
+    lat: float = Query(..., ge=-90, le=90, description="緯度"),
+    lon: float = Query(..., ge=-180, le=180, description="経度"),
     date: dt.date | None = Query(None, description="対象日付 (YYYY-MM-DD)"),
     current_user: User = Depends(get_current_user),
 ):
@@ -22,8 +22,8 @@ async def get_weather(
 
 @router.get("/forecast", response_model=ForecastResponse)
 async def get_forecast(
-    lat: float = Query(..., description="緯度"),
-    lon: float = Query(..., description="経度"),
+    lat: float = Query(..., ge=-90, le=90, description="緯度"),
+    lon: float = Query(..., ge=-180, le=180, description="経度"),
     current_user: User = Depends(get_current_user),
 ):
     return await weather_service.get_forecast(lat, lon)

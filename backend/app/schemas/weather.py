@@ -1,3 +1,5 @@
+import datetime as dt
+
 from pydantic import BaseModel
 
 
@@ -8,7 +10,7 @@ class LocationResponse(BaseModel):
 
 
 class WeatherResponse(BaseModel):
-    date: str
+    date: dt.date
     location: LocationResponse
     temp_c: float
     condition: str
@@ -20,7 +22,7 @@ class WeatherResponse(BaseModel):
 
 
 class ForecastDayResponse(BaseModel):
-    date: str
+    date: dt.date
     avg_temp_c: float
     max_temp_c: float
     min_temp_c: float
