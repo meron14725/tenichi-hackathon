@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, BigInt
 
 if TYPE_CHECKING:
+    from app.models.device_token import DeviceToken  # noqa: F401
     from app.models.refresh_token import RefreshToken  # noqa: F401
     from app.models.schedule import Schedule  # noqa: F401
     from app.models.schedule_list import ScheduleList  # noqa: F401
@@ -30,6 +31,7 @@ class User(Base):
 
     settings: Mapped[UserSettings] = relationship(back_populates="user")
     notification_settings: Mapped[NotificationSettings] = relationship(back_populates="user")
+    device_tokens: Mapped[list[DeviceToken]] = relationship(back_populates="user")
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(back_populates="user")
     schedules: Mapped[list[Schedule]] = relationship(back_populates="user")
     schedule_lists: Mapped[list[ScheduleList]] = relationship(back_populates="user")
