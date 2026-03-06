@@ -9,6 +9,7 @@ from app.api.schedules import router as schedules_router
 from app.api.tags import router as tags_router
 from app.api.templates import router as templates_router
 from app.api.users import router as users_router
+from app.api.weather import router as weather_router
 from app.config import settings
 from app.exceptions import (
     AppError,
@@ -39,3 +40,4 @@ app.include_router(tags_router, prefix="/api/v1")
 app.include_router(schedules_router, prefix="/api/v1")
 app.include_router(schedule_lists_router, prefix="/api/v1")
 app.include_router(templates_router, prefix="/api/v1")
+app.include_router(weather_router, prefix="/api/v1")
