@@ -167,9 +167,7 @@ class TestWeatherService:
         """外部API失敗時は AppError(502)."""
         from app.services.weather_service import get_weather
 
-        mock_fetch.side_effect = AppError(
-            "WEATHER_UNAVAILABLE", "Weather API request failed", 502
-        )
+        mock_fetch.side_effect = AppError("WEATHER_UNAVAILABLE", "Weather API request failed", 502)
 
         with pytest.raises(AppError) as exc_info:
             await get_weather(35.658, 139.701)
@@ -180,9 +178,7 @@ class TestWeatherService:
         """外部API失敗時は AppError(502)."""
         from app.services.weather_service import get_forecast
 
-        mock_fetch.side_effect = AppError(
-            "WEATHER_UNAVAILABLE", "Weather API request failed", 502
-        )
+        mock_fetch.side_effect = AppError("WEATHER_UNAVAILABLE", "Weather API request failed", 502)
 
         with pytest.raises(AppError) as exc_info:
             await get_forecast(35.658, 139.701)
