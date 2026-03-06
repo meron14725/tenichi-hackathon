@@ -19,9 +19,9 @@ async def get_current_user(
     try:
         payload = decode_access_token(credentials.credentials)
     except jwt.ExpiredSignatureError:
-        raise AppError("UNAUTHORIZED", "Token has expired", 401)
+        raise AppError("UNAUTHORIZED", "Token has expired", 401) from None
     except jwt.InvalidTokenError:
-        raise AppError("UNAUTHORIZED", "Invalid token", 401)
+        raise AppError("UNAUTHORIZED", "Invalid token", 401) from None
 
     if payload.get("type") != "access":
         raise AppError("UNAUTHORIZED", "Invalid token type", 401)

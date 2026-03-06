@@ -8,7 +8,6 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import NotificationSettings, User, UserSettings
 from app.schemas.auth import RegisterRequest
 from app.utils.auth import (
-    ACCESS_TOKEN_EXPIRE_SECONDS,
     REFRESH_TOKEN_EXPIRE_DAYS,
     create_access_token,
     create_refresh_token,
@@ -17,9 +16,7 @@ from app.utils.auth import (
 )
 
 
-async def register(
-    db: AsyncSession, data: RegisterRequest
-) -> tuple[User, str, str]:
+async def register(db: AsyncSession, data: RegisterRequest) -> tuple[User, str, str]:
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none() is not None:
         raise AppError("CONFLICT", "Email already registered", 409)
@@ -59,9 +56,7 @@ async def register(
     return user, access_token, raw_refresh_token
 
 
-async def login(
-    db: AsyncSession, email: str, password: str
-) -> tuple[str, str]:
+async def login(db: AsyncSession, email: str, password: str) -> tuple[str, str]:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 

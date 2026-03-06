@@ -1,0 +1,16 @@
+# 本番依存をインクルード
+-r requirements.txt
+
+# Lint & Format
+ruff
+
+# 型チェック
+mypy
+
+# テスト
+pytest
+pytest-asyncio
+httpx
+
+# テスト用 SQLite ドライバ
+aiosqlite

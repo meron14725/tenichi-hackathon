@@ -1,0 +1,32 @@
+# Ruff configuration for tenichi backend
+# https://docs.astral.sh/ruff/configuration/
+
+target-version = "py312"
+line-length = 120
+
+# alembic の自動生成コードは対象外
+extend-exclude = ["alembic/"]
+
+[lint]
+# 有効にするルールセット
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort (import sorting)
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+]
+
+# 無視するルール
+ignore = [
+    "E501",  # line-too-long (formatterに任せる)
+    "B008",  # Depends() in defaults — FastAPI の標準パターン
+]
+
+[lint.isort]
+known-first-party = ["app"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

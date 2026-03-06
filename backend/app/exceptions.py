@@ -30,9 +30,7 @@ async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
     )
 
 
-async def validation_error_handler(
-    _request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=422,
         content={
