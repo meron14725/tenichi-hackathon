@@ -27,12 +27,14 @@ cp .env.example .env
 | `WEATHERAPI_KEY` | WeatherAPI.com の API キー |
 | `GEMINI_API_KEY` | Google Gemini API キー |
 
-### 2. OTP2 グラフデータ
+### 2. OTP2 グラフデータの取得
 
 OTP2 の経路探索用グラフファイル (`graph.obj`, 約 709MB) は Git LFS で管理されています。
-`git clone` 時に自動でダウンロードされます。
+clone 時には自動ダウンロードされないため、以下を実行してください。
 
-> Git LFS が未設定の場合は `git lfs install && git lfs pull` を実行してください。
+```bash
+git lfs pull
+```
 
 ### 3. 起動
 
