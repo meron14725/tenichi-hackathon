@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -11,6 +12,8 @@ from app.exceptions import AppError
 from app.models.schedule import Schedule
 from app.models.user import User, UserSettings
 from app.services import gemini_service, weather_service
+
+logger = logging.getLogger(__name__)
 
 
 def _format_schedules_for_prompt(schedules: list[Schedule]) -> str:
@@ -98,7 +101,8 @@ async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
                 "chance_of_rain": weather_data["chance_of_rain"],
             }
             weather_text = _format_weather_for_prompt(weather_data)
-        except AppError:
+        except AppError as e:
+            logger.warning("Weather fetch failed for user %s: %s", user.id, e.message)
             weather_text = "天気情報は取得できませんでした。"
     else:
         weather_text = "自宅の座標が設定されていないため天気情報は取得できませんでした。"
