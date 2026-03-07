@@ -1,23 +1,22 @@
 import re
 from datetime import datetime, time
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, BeforeValidator, Field, field_validator
+
+
+def _time_to_str(v: time | str) -> str:
+    if isinstance(v, time):
+        return v.strftime("%H:%M")
+    return v
 
 
 class NotificationSettingsResponse(BaseModel):
     weather_enabled: bool
-    weather_notify_time: str
+    weather_notify_time: Annotated[str, BeforeValidator(_time_to_str)]
     reminder_enabled: bool
 
     model_config = {"from_attributes": True}
-
-    @field_serializer("weather_notify_time")
-    @classmethod
-    def serialize_time(cls, v: time | str) -> str:
-        if isinstance(v, str):
-            return v
-        return v.strftime("%H:%M")
 
 
 class NotificationSettingsUpdate(BaseModel):
