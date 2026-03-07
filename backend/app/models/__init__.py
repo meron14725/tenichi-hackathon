@@ -1,4 +1,5 @@
 from app.models.base import Base
+from app.models.device_token import DeviceToken
 from app.models.refresh_token import RefreshToken
 from app.models.schedule import Schedule
 from app.models.schedule_list import PackingItem, ScheduleList
@@ -9,6 +10,7 @@ from app.models.user import NotificationSettings, User, UserSettings
 
 __all__ = [
     "Base",
+    "DeviceToken",
     "NotificationSettings",
     "PackingItem",
     "RefreshToken",

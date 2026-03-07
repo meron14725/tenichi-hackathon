@@ -32,6 +32,20 @@ async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
     )
 
 
+def _sanitize_errors(errors: list[dict]) -> list[dict]:
+    """exc.errors() の ctx 内に JSON 非対応オブジェクトがある場合に文字列化."""
+    sanitized = []
+    for err in errors:
+        err = dict(err)
+        if "ctx" in err:
+            err["ctx"] = {
+                k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                for k, v in err["ctx"].items()
+            }
+        sanitized.append(err)
+    return sanitized
+
+
 async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=422,
@@ -39,7 +53,7 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": "Request validation failed",
-                "details": exc.errors(),
+                "details": _sanitize_errors(exc.errors()),
             }
         },
     )
