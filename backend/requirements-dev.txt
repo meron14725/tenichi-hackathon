@@ -9,5 +9,5 @@ mypy
 
 # テスト
 pytest
-pytest-asyncio
+pytest-asyncio>=0.23,<1.0
 httpx
