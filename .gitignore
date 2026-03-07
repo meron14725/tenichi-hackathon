@@ -20,8 +20,5 @@ build/
 # Database
 *.db
 
-# OTP2 graph data (large binary)
-otp2/data/
-
 # OS
 .DS_Store
