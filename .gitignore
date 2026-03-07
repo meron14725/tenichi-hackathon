@@ -1,6 +1,9 @@
 # Claude Code internal
 .claude/
 
+# Serena
+.serena/
+
 # Environment variables
 .env
 .env.local
