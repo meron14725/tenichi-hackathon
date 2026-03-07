@@ -53,7 +53,7 @@ def _build_query(
     elif departure_time:
         datetime_arg = f'dateTime: {{ earliestDeparture: "{departure_time}" }}'
     else:
-        datetime_arg = 'dateTime: { earliestDeparture: "now" }'
+        datetime_arg = ""
 
     return f"""
     {{

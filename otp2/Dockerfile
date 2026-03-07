@@ -2,9 +2,9 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /otp
 
-# Download OTP2 JAR
+# Download OTP2 JAR from GitHub Releases
 ARG OTP_VERSION=2.7.0
-ADD https://repo1.maven.org/maven2/org/opentripplanner/otp/${OTP_VERSION}/otp-${OTP_VERSION}-shaded.jar otp.jar
+ADD https://github.com/opentripplanner/OpenTripPlanner/releases/download/v${OTP_VERSION}/otp-shaded-${OTP_VERSION}.jar otp.jar
 
 # Copy pre-built graph data
 # graph.obj must be placed in otp2/data/ before building
