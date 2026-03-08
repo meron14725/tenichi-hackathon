@@ -64,9 +64,7 @@ def _format_schedule_for_prompt(schedule: Schedule) -> str:
 async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
     """今日の提案を生成する."""
     # ユーザー設定から自宅座標を取得
-    result = await db.execute(
-        select(UserSettings).where(UserSettings.user_id == user.id)
-    )
+    result = await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))
     user_settings = result.scalar_one_or_none()
 
     tz = ZoneInfo(user_settings.timezone if user_settings else "Asia/Tokyo")

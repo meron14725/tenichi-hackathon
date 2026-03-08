@@ -103,8 +103,5 @@ async def generate_schedule_suggestion(schedule_text: str) -> str:
     """指定予定の情報から周辺スポット・アドバイスを生成する."""
     schedule_text = schedule_text[:MAX_INPUT_LENGTH]
 
-    prompt = (
-        f"【予定情報】\n{schedule_text}\n\n"
-        "上記の情報をもとに、おすすめスポットやアドバイスを提案してください。"
-    )
+    prompt = f"【予定情報】\n{schedule_text}\n\n上記の情報をもとに、おすすめスポットやアドバイスを提案してください。"
     return await _generate(prompt, SCHEDULE_SYSTEM_INSTRUCTION)
