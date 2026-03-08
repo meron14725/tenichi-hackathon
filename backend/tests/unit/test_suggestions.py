@@ -206,8 +206,8 @@ class TestSuggestionsService:
 
         schedule = MagicMock()
         schedule.title = "銀座ディナー"
-        schedule.start_at = dt.datetime(2026, 3, 10, 19, 0, tzinfo=dt.timezone.utc)
-        schedule.end_at = dt.datetime(2026, 3, 10, 21, 0, tzinfo=dt.timezone.utc)
+        schedule.start_at = dt.datetime(2026, 3, 10, 19, 0, tzinfo=dt.UTC)
+        schedule.end_at = dt.datetime(2026, 3, 10, 21, 0, tzinfo=dt.UTC)
         schedule.destination_name = "銀座鮨さいとう"
         schedule.destination_address = "東京都中央区銀座"
         tag = MagicMock()
@@ -228,7 +228,7 @@ class TestSuggestionsService:
 
         schedule = MagicMock()
         schedule.title = "打ち合わせ"
-        schedule.start_at = dt.datetime(2026, 3, 10, 10, 0, tzinfo=dt.timezone.utc)
+        schedule.start_at = dt.datetime(2026, 3, 10, 10, 0, tzinfo=dt.UTC)
         schedule.end_at = None
         schedule.destination_name = None
         schedule.destination_address = None

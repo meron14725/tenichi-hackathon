@@ -9,10 +9,10 @@ from app.api.routes import router as routes_router
 from app.api.schedule_lists import router as schedule_lists_router
 from app.api.schedule_routes import router as schedule_routes_router
 from app.api.schedules import router as schedules_router
+from app.api.suggestions import router as suggestions_router
 from app.api.tags import router as tags_router
 from app.api.templates import router as templates_router
 from app.api.users import router as users_router
-from app.api.suggestions import router as suggestions_router
 from app.api.weather import router as weather_router
 from app.config import settings
 from app.exceptions import (
