@@ -19,6 +19,11 @@ TOKYO_STATION = {"lat": 35.6812, "lon": 139.7671}
 SHIBUYA = {"lat": 35.6580, "lon": 139.7016}
 KOENJI = {"lat": 35.7057, "lon": 139.6496}
 ROPPONGI = {"lat": 35.6627, "lon": 139.7311}
+IKEBUKURO = {"lat": 35.7295, "lon": 139.7109}
+SHINAGAWA = {"lat": 35.6284, "lon": 139.7387}
+UENO = {"lat": 35.7141, "lon": 139.7774}
+AKIHABARA = {"lat": 35.6984, "lon": 139.7731}
+MEGURO = {"lat": 35.6340, "lon": 139.7158}
 
 JST = timezone(timedelta(hours=9))
 
