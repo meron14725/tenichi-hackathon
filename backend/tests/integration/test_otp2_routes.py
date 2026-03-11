@@ -12,7 +12,6 @@ from httpx import AsyncClient
 
 from tests.conftest import auth_headers
 from tests.integration.conftest import (
-    JST,
     KOENJI,
     ROPPONGI,
     SHIBUYA,
@@ -54,14 +53,8 @@ class TestSearchRoutesIntegration:
 
         # transit モードでは RAIL/SUBWAY/BUS leg が含まれるはず
         transit_modes = {"RAIL", "SUBWAY", "BUS"}
-        all_leg_modes = {
-            leg["mode"]
-            for it in data["itineraries"]
-            for leg in it["legs"]
-        }
-        assert all_leg_modes & transit_modes, (
-            f"transit search should include RAIL/SUBWAY/BUS legs, got {all_leg_modes}"
-        )
+        all_leg_modes = {leg["mode"] for it in data["itineraries"] for leg in it["legs"]}
+        assert all_leg_modes & transit_modes, f"transit search should include RAIL/SUBWAY/BUS legs, got {all_leg_modes}"
 
     async def test_search_walking(self, client: AsyncClient):
         """TC-02: walking モードで新宿→渋谷の徒歩経路検索が成功する."""
@@ -345,9 +338,7 @@ class TestDepartureTimeIntegration:
 
         leave = datetime.fromisoformat(data["leave_home_at"])
         arrival = datetime.fromisoformat(data["arrival_time"])
-        assert leave < arrival, (
-            f"leave_home_at ({leave}) should be before arrival_time ({arrival})"
-        )
+        assert leave < arrival, f"leave_home_at ({leave}) should be before arrival_time ({arrival})"
 
 
 # ============================================================
