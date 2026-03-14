@@ -52,6 +52,7 @@ JSON配列で返してください。指摘がなければ空配列 [] を返し
 ```json
 [
   {
+    "file": "<ファイルパス>",
     "line": <変更後ファイルの行番号（diffの+側の行番号）>,
     "severity": "MUST" | "WANT" | "NITS",
     "comment": "<具体的な指摘内容>"
@@ -64,13 +65,11 @@ JSON配列で返してください。指摘がなければ空配列 [] を返し
 - NITS: 細かい指摘（命名、スタイル）
 """
 
-DIFF_PROMPT_TEMPLATE = """以下のファイルの差分をレビューしてください。
+REVIEW_PROMPT_TEMPLATE = """以下のPull Requestの全差分をレビューしてください。
 キャッシュされたファイル全文を文脈として参照し、差分の変更箇所のみを対象にレビューしてください。
+問題がなければ空配列 [] を返してください。
 
-ファイル: {filename}
-```diff
-{patch}
-```
+{all_diffs}
 """
 
 SEVERITY_EMOJI = {
@@ -138,26 +137,26 @@ def create_context_cache(client: genai.Client, file_parts: list[types.Part], pr_
     )
 
 
-def review_file(
-    client: genai.Client, filename: str, patch: str, cache_name: str | None = None
-) -> tuple[list[dict], dict]:
-    """Review a single file's diff. Uses cached context if cache_name is provided."""
+def build_all_diffs(files) -> str:
+    """Build a combined diff string for all files."""
+    parts = []
+    for f in files:
+        if f.patch:
+            parts.append(f"=== File: {f.filename} ===\n```diff\n{f.patch}\n```\n")
+    return "\n".join(parts)
+
+
+def run_review(client: genai.Client, all_diffs: str, cache_name: str | None = None) -> tuple[list[dict], dict]:
+    """Send all diffs to Gemini in a single API call. Returns (comments, usage_stats)."""
+    prompt = REVIEW_PROMPT_TEMPLATE.format(all_diffs=all_diffs)
+
     if cache_name:
-        prompt = DIFF_PROMPT_TEMPLATE.format(filename=filename, patch=patch)
         config = types.GenerateContentConfig(
             cached_content=cache_name,
             response_mime_type="application/json",
         )
     else:
-        prompt = f"""{SYSTEM_INSTRUCTION}
-
-以下のファイルの差分をレビューしてください。
-
-ファイル: {filename}
-```diff
-{patch}
-```
-"""
+        prompt = f"{SYSTEM_INSTRUCTION}\n\n{prompt}"
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
         )
@@ -177,7 +176,7 @@ def review_file(
     try:
         comments = json.loads(response.text)
     except json.JSONDecodeError:
-        print(f"  Warning: Failed to parse JSON for {filename}, skipping.")
+        print("  Warning: Failed to parse JSON response, skipping.")
         return [], usage
 
     if not isinstance(comments, list):
@@ -244,6 +243,12 @@ def main() -> None:
     client = get_gemini_client(project_id, region)
     latest_commit = pr.get_commits().reversed[0]
 
+    # Build valid lines map per file for comment validation
+    valid_lines_map = {}
+    for f in reviewable_files:
+        if f.patch:
+            valid_lines_map[f.filename] = parse_patch_lines(f.patch)
+
     # Try to create context cache
     print("Fetching file contents for context cache...")
     file_parts = fetch_file_contents(repo, pr, reviewable_files)
@@ -259,57 +264,52 @@ def main() -> None:
             print(f"Cache creation failed (falling back to no-cache mode): {e}")
             use_cache = False
 
-    # Review each file
+    # Run single review for all diffs
     total_comments = 0
-    total_input = 0
-    total_output = 0
-    total_cached = 0
 
     try:
-        for f in reviewable_files:
-            if not f.patch:
+        all_diffs = build_all_diffs(reviewable_files)
+        print(f"Reviewing {len(reviewable_files)} files in a single API call...")
+
+        comments, usage = run_review(client, all_diffs, cache_name=cache.name if use_cache else None)
+
+        total_input = usage["input_tokens"]
+        total_output = usage["output_tokens"]
+        total_cached = usage["cached_tokens"]
+
+        # Post inline comments
+        for item in comments:
+            filename = item.get("file", "")
+            line = item.get("line")
+            severity = item.get("severity", "NITS")
+            comment_text = item.get("comment", "")
+
+            if not filename or not line or not comment_text:
                 continue
 
-            print(f"Reviewing: {f.filename}")
-
-            comments, usage = review_file(client, f.filename, f.patch, cache_name=cache.name if use_cache else None)
-
-            total_input += usage["input_tokens"]
-            total_output += usage["output_tokens"]
-            total_cached += usage["cached_tokens"]
-
-            if not comments:
-                print("  No issues found.")
+            valid_lines = valid_lines_map.get(filename)
+            if valid_lines is None:
+                print(f"  Skipping comment on {filename} (not in reviewable files).")
                 continue
 
-            valid_lines = parse_patch_lines(f.patch)
+            if line not in valid_lines:
+                print(f"  Skipping comment on {filename}:{line} (not in diff range).")
+                continue
 
-            for item in comments:
-                line = item.get("line")
-                severity = item.get("severity", "NITS")
-                comment_text = item.get("comment", "")
+            emoji = SEVERITY_EMOJI.get(severity, "🔵")
+            body = f"**[{emoji} {severity}]** {comment_text}"
 
-                if not line or not comment_text:
-                    continue
-
-                if line not in valid_lines:
-                    print(f"  Skipping comment on line {line} (not in diff range).")
-                    continue
-
-                emoji = SEVERITY_EMOJI.get(severity, "🔵")
-                body = f"**[{emoji} {severity}]** {comment_text}"
-
-                try:
-                    pr.create_review_comment(
-                        body=body,
-                        commit=latest_commit,
-                        path=f.filename,
-                        line=line,
-                    )
-                    total_comments += 1
-                    print(f"  Posted comment on {f.filename}:{line}")
-                except Exception as e:
-                    print(f"  Failed to post comment on {f.filename}:{line}: {e}")
+            try:
+                pr.create_review_comment(
+                    body=body,
+                    commit=latest_commit,
+                    path=filename,
+                    line=line,
+                )
+                total_comments += 1
+                print(f"  Posted comment on {filename}:{line}")
+            except Exception as e:
+                print(f"  Failed to post comment on {filename}:{line}: {e}")
     finally:
         # Clean up cache
         if cache:

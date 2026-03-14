@@ -2,7 +2,8 @@ name: Gemini Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened]
+    branches: [develop]
 
 permissions:
   contents: read
