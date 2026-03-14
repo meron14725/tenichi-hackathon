@@ -19,38 +19,37 @@ TEST_DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://tenichi:tenichi@localhost:5432/tenichi",
 )
 
-engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
-
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
     """テストごとにテーブルを作成・削除."""
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     # Seed tags and template categories
-    async with TestSessionLocal() as session:
+    async with session_factory() as session:
         for name in ["仕事", "会食", "デート", "運動"]:
             session.add(Tag(name=name))
         for name in ["仕事の日", "在宅勤務", "休日"]:
             session.add(TemplateCategory(name=name))
         await session.commit()
 
+    # FastAPI の依存関係を上書き
+    async def override_get_db() -> AsyncGenerator[AsyncSession]:
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+
     yield
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
-
-
-async def override_get_db() -> AsyncGenerator[AsyncSession]:
-    """テスト用の DB セッション."""
-    async with TestSessionLocal() as session:
-        yield session
-
-
-# FastAPI の依存関係を上書き
-app.dependency_overrides[get_db] = override_get_db
 
 
 @pytest_asyncio.fixture
