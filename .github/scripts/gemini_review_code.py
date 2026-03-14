@@ -25,7 +25,6 @@ REVIEWABLE_EXTENSIONS = {
     ".sh",
     ".bash",
     ".sql",
-    ".dockerfile",
     ".ini",
 }
 
@@ -139,40 +138,18 @@ def create_context_cache(client: genai.Client, file_parts: list[types.Part], pr_
     )
 
 
-def review_file_with_cache(client: genai.Client, cache_name: str, filename: str, patch: str) -> tuple[list[dict], dict]:
-    """Review a single file's diff using cached context. Returns (comments, usage_stats)."""
-    prompt = DIFF_PROMPT_TEMPLATE.format(filename=filename, patch=patch)
-
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
+def review_file(
+    client: genai.Client, filename: str, patch: str, cache_name: str | None = None
+) -> tuple[list[dict], dict]:
+    """Review a single file's diff. Uses cached context if cache_name is provided."""
+    if cache_name:
+        prompt = DIFF_PROMPT_TEMPLATE.format(filename=filename, patch=patch)
+        config = types.GenerateContentConfig(
             cached_content=cache_name,
             response_mime_type="application/json",
-        ),
-    )
-
-    usage = {
-        "input_tokens": getattr(response.usage_metadata, "prompt_token_count", 0) or 0,
-        "output_tokens": getattr(response.usage_metadata, "candidates_token_count", 0) or 0,
-        "cached_tokens": getattr(response.usage_metadata, "cached_content_token_count", 0) or 0,
-    }
-
-    try:
-        comments = json.loads(response.text)
-    except json.JSONDecodeError:
-        print(f"  Warning: Failed to parse JSON for {filename}, skipping.")
-        return [], usage
-
-    if not isinstance(comments, list):
-        return [], usage
-
-    return comments, usage
-
-
-def review_file_no_cache(client: genai.Client, filename: str, patch: str) -> tuple[list[dict], dict]:
-    """Review a single file's diff without cache (fallback)."""
-    prompt = f"""{SYSTEM_INSTRUCTION}
+        )
+    else:
+        prompt = f"""{SYSTEM_INSTRUCTION}
 
 以下のファイルの差分をレビューしてください。
 
@@ -181,19 +158,20 @@ def review_file_no_cache(client: genai.Client, filename: str, patch: str) -> tup
 {patch}
 ```
 """
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+        )
 
     response = client.models.generate_content(
         model=GEMINI_MODEL,
         contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-        ),
+        config=config,
     )
 
     usage = {
         "input_tokens": getattr(response.usage_metadata, "prompt_token_count", 0) or 0,
         "output_tokens": getattr(response.usage_metadata, "candidates_token_count", 0) or 0,
-        "cached_tokens": 0,
+        "cached_tokens": getattr(response.usage_metadata, "cached_content_token_count", 0) or 0,
     }
 
     try:
@@ -294,10 +272,7 @@ def main() -> None:
 
             print(f"Reviewing: {f.filename}")
 
-            if use_cache:
-                comments, usage = review_file_with_cache(client, cache.name, f.filename, f.patch)
-            else:
-                comments, usage = review_file_no_cache(client, f.filename, f.patch)
+            comments, usage = review_file(client, f.filename, f.patch, cache_name=cache.name if use_cache else None)
 
             total_input += usage["input_tokens"]
             total_output += usage["output_tokens"]
