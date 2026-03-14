@@ -17,9 +17,14 @@ def _get_auth_headers() -> dict[str, str]:
 
     import google.auth.transport.requests  # noqa: I001
     import google.oauth2.id_token
+    from urllib.parse import urlparse
+
+    # audience はベースURL（パスなし）にする必要がある
+    parsed = urlparse(settings.OTP2_GRAPHQL_URL)
+    audience = f"{parsed.scheme}://{parsed.netloc}"
 
     request = google.auth.transport.requests.Request()
-    token = google.oauth2.id_token.fetch_id_token(request, settings.OTP2_GRAPHQL_URL)
+    token = google.oauth2.id_token.fetch_id_token(request, audience)
     return {"Authorization": f"Bearer {token}"}
 
 
