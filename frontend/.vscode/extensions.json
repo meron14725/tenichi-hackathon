@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "expo.vscode-expo-tools",
+        "expo.expo-vscode",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "jmcantrell.vscode-mise"
+    ]
+}
