@@ -4,7 +4,7 @@ import json
 import os
 import re
 
-from github import Github
+from github import Auth, Github
 from google import genai
 from google.genai import types
 
@@ -120,7 +120,7 @@ def fetch_file_contents(repo, pr, files) -> list[types.Part]:
             print(f"  Skipping {f.filename} (too large: {len(full_content)} chars)")
             continue
 
-        parts.append(types.Part.from_text(f"=== File: {f.filename} ===\n{full_content}"))
+        parts.append(types.Part(text=f"=== File: {f.filename} ===\n{full_content}"))
         print(f"  Cached: {f.filename}")
 
     return parts
@@ -252,7 +252,7 @@ def main() -> None:
     pr_number = int(os.environ["PR_NUMBER"])
     repo_name = os.environ["REPO_NAME"]
 
-    g = Github(github_token)
+    g = Github(auth=Auth.Token(github_token))
     repo = g.get_repo(repo_name)
     pr = repo.get_pull(pr_number)
     files = pr.get_files()
