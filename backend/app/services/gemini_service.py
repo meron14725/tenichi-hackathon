@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 
-import google.generativeai as genai
+import vertexai
+from vertexai.generative_models import GenerativeModel
 
 from app.config import settings
 from app.exceptions import AppError
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 GEMINI_MODEL = "gemini-2.0-flash"
 MAX_INPUT_LENGTH = 2000
 
-_configured = False
+_initialized = False
 
 TODAY_SYSTEM_INSTRUCTION = (
     "あなたは日本語で応答するスケジュールアシスタントです。"
@@ -31,16 +32,16 @@ SCHEDULE_SYSTEM_INSTRUCTION = (
 
 
 def _ensure_configured() -> None:
-    global _configured
-    if not _configured:
-        if not settings.GEMINI_API_KEY:
+    global _initialized
+    if not _initialized:
+        if not settings.GCP_PROJECT_ID:
             raise AppError(
                 "SUGGESTIONS_UNAVAILABLE",
-                "Gemini API key is not configured",
+                "GCP project is not configured",
                 503,
             )
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        _configured = True
+        vertexai.init(project=settings.GCP_PROJECT_ID, location=settings.GCP_LOCATION)
+        _initialized = True
 
 
 async def _generate(prompt: str, system_instruction: str) -> str:
@@ -48,7 +49,7 @@ async def _generate(prompt: str, system_instruction: str) -> str:
     _ensure_configured()
 
     try:
-        model = genai.GenerativeModel(
+        model = GenerativeModel(
             GEMINI_MODEL,
             system_instruction=system_instruction,
         )
