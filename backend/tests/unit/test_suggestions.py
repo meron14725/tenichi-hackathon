@@ -1,6 +1,6 @@
 """Suggestions API のテスト.
 
-Gemini API と Weather API の呼び出しをモックしたユニットテスト。
+Gemini API (Vertex AI) と Weather API の呼び出しをモックしたユニットテスト。
 """
 
 import datetime as dt
@@ -15,13 +15,13 @@ from app.exceptions import AppError
 class TestGeminiService:
     """gemini_service のユニットテスト."""
 
-    async def test_api_key_not_configured(self):
-        """APIキー未設定時は AppError(503)."""
+    async def test_project_not_configured(self):
+        """GCPプロジェクト未設定時は AppError(503)."""
         from app.services.gemini_service import generate_today_suggestion
 
         with patch("app.services.gemini_service.settings") as mock_settings:
-            mock_settings.GEMINI_API_KEY = ""
-            with patch("app.services.gemini_service._configured", False):
+            mock_settings.GCP_PROJECT_ID = ""
+            with patch("app.services.gemini_service._initialized", False):
                 with pytest.raises(AppError) as exc_info:
                     await generate_today_suggestion("予定なし", "晴れ")
                 assert exc_info.value.status_code == 503
@@ -38,8 +38,8 @@ class TestGeminiService:
         mock_model = AsyncMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response)
 
-        with patch("app.services.gemini_service._configured", True):
-            with patch("app.services.gemini_service.genai.GenerativeModel", return_value=mock_model):
+        with patch("app.services.gemini_service._initialized", True):
+            with patch("app.services.gemini_service.GenerativeModel", return_value=mock_model):
                 result = await generate_today_suggestion("会議 10:00", "晴れ 20℃")
 
         assert result == "折りたたみ傘を持参してください。"
@@ -56,8 +56,8 @@ class TestGeminiService:
         mock_model = AsyncMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response)
 
-        with patch("app.services.gemini_service._configured", True):
-            with patch("app.services.gemini_service.genai.GenerativeModel", return_value=mock_model):
+        with patch("app.services.gemini_service._initialized", True):
+            with patch("app.services.gemini_service.GenerativeModel", return_value=mock_model):
                 result = await generate_schedule_suggestion("銀座ランチ 12:00")
 
         assert result == "近くにおすすめのカフェがあります。"
@@ -69,8 +69,8 @@ class TestGeminiService:
         mock_model = AsyncMock()
         mock_model.generate_content_async = AsyncMock(side_effect=Exception("API error"))
 
-        with patch("app.services.gemini_service._configured", True):
-            with patch("app.services.gemini_service.genai.GenerativeModel", return_value=mock_model):
+        with patch("app.services.gemini_service._initialized", True):
+            with patch("app.services.gemini_service.GenerativeModel", return_value=mock_model):
                 with pytest.raises(AppError) as exc_info:
                     await generate_today_suggestion("予定", "天気")
                 assert exc_info.value.status_code == 502
@@ -83,8 +83,8 @@ class TestGeminiService:
         mock_model = AsyncMock()
         mock_model.generate_content_async = AsyncMock(side_effect=Exception("API error"))
 
-        with patch("app.services.gemini_service._configured", True):
-            with patch("app.services.gemini_service.genai.GenerativeModel", return_value=mock_model):
+        with patch("app.services.gemini_service._initialized", True):
+            with patch("app.services.gemini_service.GenerativeModel", return_value=mock_model):
                 with pytest.raises(AppError) as exc_info:
                     await generate_schedule_suggestion("予定")
                 assert exc_info.value.status_code == 502
@@ -100,8 +100,8 @@ class TestGeminiService:
         mock_model = AsyncMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response)
 
-        with patch("app.services.gemini_service._configured", True):
-            with patch("app.services.gemini_service.genai.GenerativeModel", return_value=mock_model):
+        with patch("app.services.gemini_service._initialized", True):
+            with patch("app.services.gemini_service.GenerativeModel", return_value=mock_model):
                 with pytest.raises(AppError) as exc_info:
                     await generate_today_suggestion("予定", "天気")
                 assert exc_info.value.status_code == 502
@@ -116,8 +116,8 @@ class TestGeminiService:
         mock_model = AsyncMock()
         mock_model.generate_content_async = AsyncMock(return_value=mock_response)
 
-        with patch("app.services.gemini_service._configured", True):
-            with patch("app.services.gemini_service.genai.GenerativeModel", return_value=mock_model):
+        with patch("app.services.gemini_service._initialized", True):
+            with patch("app.services.gemini_service.GenerativeModel", return_value=mock_model):
                 with pytest.raises(AppError) as exc_info:
                     await generate_today_suggestion("予定", "天気")
                 assert exc_info.value.status_code == 502
@@ -135,8 +135,8 @@ class TestGeminiService:
 
         long_text = "あ" * (MAX_INPUT_LENGTH + 1000)
 
-        with patch("app.services.gemini_service._configured", True):
-            with patch("app.services.gemini_service.genai.GenerativeModel", return_value=mock_model):
+        with patch("app.services.gemini_service._initialized", True):
+            with patch("app.services.gemini_service.GenerativeModel", return_value=mock_model):
                 result = await generate_today_suggestion(long_text, long_text)
 
         assert result == "提案です。"
@@ -291,9 +291,9 @@ class TestSuggestionsSchemas:
 class TestSuggestionsAPI:
     """Suggestions API エンドポイントの結合テスト（DB有り、Gemini/Weatherモック）."""
 
-    @patch("app.services.gemini_service._configured", True)
+    @patch("app.services.gemini_service._initialized", True)
     @patch("app.services.weather_service.get_weather", new_callable=AsyncMock)
-    @patch("app.services.gemini_service.genai.GenerativeModel")
+    @patch("app.services.gemini_service.GenerativeModel")
     async def test_get_today_suggestion(self, mock_model_cls, mock_weather, client):
         from tests.conftest import auth_headers
 
@@ -321,9 +321,9 @@ class TestSuggestionsAPI:
         assert "date" in data
         assert data["weather_summary"]["temp_c"] == 12.5
 
-    @patch("app.services.gemini_service._configured", True)
+    @patch("app.services.gemini_service._initialized", True)
     @patch("app.services.weather_service.get_weather", new_callable=AsyncMock)
-    @patch("app.services.gemini_service.genai.GenerativeModel")
+    @patch("app.services.gemini_service.GenerativeModel")
     async def test_get_today_suggestion_weather_failure(self, mock_model_cls, mock_weather, client):
         """天気API失敗時もフォールバックして提案を返す."""
         from tests.conftest import auth_headers
@@ -345,8 +345,8 @@ class TestSuggestionsAPI:
         assert data["suggestion"] == "良い一日をお過ごしください。"
         assert data["weather_summary"] is None
 
-    @patch("app.services.gemini_service._configured", True)
-    @patch("app.services.gemini_service.genai.GenerativeModel")
+    @patch("app.services.gemini_service._initialized", True)
+    @patch("app.services.gemini_service.GenerativeModel")
     async def test_get_schedule_suggestion(self, mock_model_cls, client):
         from tests.conftest import auth_headers
 
@@ -376,8 +376,8 @@ class TestSuggestionsAPI:
         assert data["schedule_id"] == schedule_id
         assert data["suggestion"] == "近くにおすすめのバーがあります。"
 
-    @patch("app.services.gemini_service._configured", True)
-    @patch("app.services.gemini_service.genai.GenerativeModel")
+    @patch("app.services.gemini_service._initialized", True)
+    @patch("app.services.gemini_service.GenerativeModel")
     async def test_get_schedule_suggestion_not_found(self, mock_model_cls, client):
         from tests.conftest import auth_headers
 
@@ -386,8 +386,8 @@ class TestSuggestionsAPI:
         resp = await client.get("/api/v1/suggestions/99999", headers=headers)
         assert resp.status_code == 404
 
-    @patch("app.services.gemini_service._configured", True)
-    @patch("app.services.gemini_service.genai.GenerativeModel")
+    @patch("app.services.gemini_service._initialized", True)
+    @patch("app.services.gemini_service.GenerativeModel")
     async def test_other_user_schedule_not_accessible(self, mock_model_cls, client):
         """他ユーザーのスケジュールにはアクセスできない."""
         from tests.conftest import auth_headers
