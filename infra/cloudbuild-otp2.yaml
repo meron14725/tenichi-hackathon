@@ -1,4 +1,8 @@
 steps:
+  # Step 0: GCS から graph.obj をダウンロード（Git LFS では取得不可のため）
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', 'gs://${PROJECT_ID}_cloudbuild/otp2-data/graph.obj', 'otp2/data/graph.obj']
+
   # Step 1: Docker イメージをビルド（graph.obj含むため大きい）
   - name: 'gcr.io/cloud-builders/docker'
     args:

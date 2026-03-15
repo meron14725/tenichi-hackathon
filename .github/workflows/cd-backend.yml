@@ -5,7 +5,6 @@ on:
     branches: [develop]
     paths:
       - "backend/**"
-      - "infra/cloudbuild-backend.yaml"
 
 permissions:
   contents: read
