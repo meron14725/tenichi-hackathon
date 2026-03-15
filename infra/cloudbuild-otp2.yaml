@@ -36,7 +36,7 @@ steps:
       - '--min-instances=1'
       - '--max-instances=2'
       - '--port=8080'
-      - '--ingress=internal'
+      - '--ingress=all'
       - '--no-allow-unauthenticated'
       - '--service-account=otp2-sa@$PROJECT_ID.iam.gserviceaccount.com'
       - '--timeout=300'
