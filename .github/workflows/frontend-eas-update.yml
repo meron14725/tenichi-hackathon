@@ -1,0 +1,65 @@
+name: Frontend EAS Update
+
+on:
+  workflow_dispatch:
+  # 挙動が不安定なため、一時的に push トリガーをコメントアウトしています
+  # push:
+  #   branches:
+  #     - develop
+  #     # 追々は以下のコメントアウトを外せば、stg / main ブランチマージ時にも対応します
+  #     # - stg
+  #     # - main
+  #   paths:
+  #     - 'frontend/**'
+  #     - '.github/workflows/frontend-eas-update.yml'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Determine environment and branch
+        id: env-setup
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "env=production" >> $GITHUB_ENV
+            echo "branch=production" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" = "refs/heads/stg" ]; then
+            echo "env=staging" >> $GITHUB_ENV
+            echo "branch=staging" >> $GITHUB_ENV
+          else
+            echo "env=dev" >> $GITHUB_ENV
+            echo "branch=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Publish EAS Update
+        run: eas update --branch ${{ env.branch }} --non-interactive --message "${{ github.event.head_commit.message }}"
+        env:
+          EXPO_PUBLIC_ENV: ${{ env.env }}
