@@ -350,10 +350,12 @@ GitHub Push
 | `SUPABASE_KEY` | Supabase APIキー |
 | `JWT_SECRET` | JWT署名キー |
 | `WEATHERAPI_KEY` | WeatherAPI.comのAPIキー |
-| `GEMINI_API_KEY` | Google Gemini APIキー |
 | `OTP2_GRAPHQL_URL` | OTP2のGraphQLエンドポイント（内部URL） |
+| `GCP_PROJECT_ID` | GCPプロジェクトID（Vertex AI用、環境変数） |
+| `GCP_LOCATION` | GCPリージョン（環境変数、デフォルト: asia-northeast1） |
 
-Cloud Run + Secret Manager を使用し、環境変数としてコンテナに注入する。
+Cloud Run + Secret Manager を使用し、シークレットを環境変数としてコンテナに注入する。
+`GCP_PROJECT_ID` / `GCP_LOCATION` はシークレットではなく通常の環境変数として設定する。
 
 ### Monitoring / Logging
 
