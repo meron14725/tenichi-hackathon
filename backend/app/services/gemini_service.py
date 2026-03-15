@@ -10,7 +10,7 @@ from app.exceptions import AppError
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 MAX_INPUT_LENGTH = 2000
 
 _client: genai.Client | None = None
