@@ -3,13 +3,17 @@ export default ({ config }) => {
 
   return {
     ...config,
-    name: env === 'production' ? "Mr. Secretary" : `Mr. Secretary (${env})`,
-    slug: "frontend",
+    name: env === 'production' ? 'セバス・ホー' : `セバス・ホー (${env})`,
+    slug: 'frontend',
     ios: {
       ...config.ios,
-      bundleIdentifier: env === 'production'
-        ? "com.yourname.butler"
-        : `com.yourname.butler.${env}`,
+      bundleIdentifier: env === 'production' ? 'com.yourname.sebasu' : `com.yourname.sebasu.${env}`,
+    },
+    updates: {
+      url: 'https://u.expo.dev/dfe53b5d-1359-4896-b65a-8426048bbd3d',
+    },
+    runtimeVersion: {
+      policy: 'appVersion',
     },
     // ここから下を安全な書き方に修正
     android: {
@@ -18,11 +22,9 @@ export default ({ config }) => {
     web: {
       ...(config.web || {}),
     },
-    plugins: [
-      ...(config.plugins || []),
-    ],
+    plugins: [...(config.plugins || [])],
     extra: {
-      env: env
-    }
+      env: env,
+    },
   };
 };
