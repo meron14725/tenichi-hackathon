@@ -1,18 +1,7 @@
 import React from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Ionicons,
-  MaterialCommunityIcons,
-  Feather,
-  FontAwesome5,
-} from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 
 // Colors
 const C = {
@@ -120,11 +109,7 @@ export default function HomeScreen() {
       <View style={styles.todoCard}>
         {/* Todo header */}
         <View style={styles.todoHeader}>
-          <MaterialCommunityIcons
-            name="clipboard-text-outline"
-            size={24.5}
-            color={C.textPrimary}
-          />
+          <MaterialCommunityIcons name="clipboard-text-outline" size={24.5} color={C.textPrimary} />
           <Text style={styles.todoHeaderText}>本日すること！</Text>
         </View>
         {/* Todo body */}
@@ -182,10 +167,7 @@ export default function HomeScreen() {
     );
   }
 
-  function renderTimelineEntry(
-    item: (typeof TIMELINE)[number],
-    index: number
-  ) {
+  function renderTimelineEntry(item: (typeof TIMELINE)[number], index: number) {
     const isLast = index === TIMELINE.length - 1;
     const textColor = item.past ? C.textMuted : C.black;
 
@@ -193,9 +175,7 @@ export default function HomeScreen() {
       <View key={`${item.time}-${item.title}`} style={styles.timelineRow}>
         {/* Time column */}
         <View style={styles.timeColumn}>
-          <Text style={[styles.timeText, { color: textColor }]}>
-            {item.time}
-          </Text>
+          <Text style={[styles.timeText, { color: textColor }]}>{item.time}</Text>
           {/* Dot */}
           <View
             style={[
@@ -223,9 +203,7 @@ export default function HomeScreen() {
           {/* Station with badge */}
           {item.badge && (
             <View style={styles.stationRow}>
-              <Text style={[styles.stationName, { color: textColor }]}>
-                {item.title}
-              </Text>
+              <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
               <View style={styles.trainBadge}>
                 <Text style={styles.trainBadgeText}>{item.badge}</Text>
               </View>
@@ -235,44 +213,28 @@ export default function HomeScreen() {
           {/* Walk info */}
           {item.walk && (
             <View style={styles.stationRow}>
-              <Text style={[styles.stationName, { color: textColor }]}>
-                {item.title}
-              </Text>
-              <Text style={styles.walkText}>
-                🚶{item.walk}
-              </Text>
+              <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
+              <Text style={styles.walkText}>🚶{item.walk}</Text>
             </View>
           )}
 
           {/* Event with icon + chevron */}
           {item.hasChevron && (
             <TouchableOpacity style={styles.eventCard}>
-              <View
-                style={[styles.eventIcon, { backgroundColor: item.iconBg }]}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={18}
-                  color={C.textSecondary}
-                />
+              <View style={[styles.eventIcon, { backgroundColor: item.iconBg }]}>
+                <Ionicons name="calendar-outline" size={18} color={C.textSecondary} />
               </View>
               <View style={styles.eventDetails}>
                 <Text style={styles.eventTitle}>{item.title}</Text>
                 <Text style={styles.eventSubtitle}>{item.subtitle}</Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={C.textMuted}
-              />
+              <Ionicons name="chevron-forward" size={18} color={C.textMuted} />
             </TouchableOpacity>
           )}
 
           {/* Simple station (no badge, no walk, no chevron) */}
           {!item.badge && !item.walk && !item.hasChevron && (
-            <Text style={[styles.stationName, { color: textColor }]}>
-              {item.title}
-            </Text>
+            <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
           )}
         </View>
       </View>
@@ -280,9 +242,7 @@ export default function HomeScreen() {
   }
 
   function renderTimeline() {
-    return (
-      <View style={styles.timeline}>{TIMELINE.map(renderTimelineEntry)}</View>
-    );
+    return <View style={styles.timeline}>{TIMELINE.map(renderTimelineEntry)}</View>;
   }
 
   return (

@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -74,11 +68,7 @@ export default function CalendarScreen() {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity style={styles.monthSelector}>
           <Text style={styles.monthText}>3月</Text>
-          <Ionicons
-            name="caret-down"
-            size={12}
-            color={C.textPrimary}
-          />
+          <Ionicons name="caret-down" size={12} color={C.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -89,7 +79,7 @@ export default function CalendarScreen() {
       >
         {/* Weekday headers */}
         <View style={styles.weekdayRow}>
-          {WEEKDAYS.map((d) => (
+          {WEEKDAYS.map(d => (
             <View key={d} style={styles.weekdayCell}>
               <Text style={styles.weekdayText}>{d}</Text>
             </View>
@@ -100,10 +90,8 @@ export default function CalendarScreen() {
         {weeks.map((week, wi) => (
           <View key={wi} style={styles.weekRow}>
             {week.map((item, di) => {
-              const isSelected =
-                item.currentMonth && item.day === selectedDay;
-              const event =
-                item.currentMonth ? EVENTS[item.day] : undefined;
+              const isSelected = item.currentMonth && item.day === selectedDay;
+              const event = item.currentMonth ? EVENTS[item.day] : undefined;
 
               return (
                 <TouchableOpacity
@@ -116,17 +104,10 @@ export default function CalendarScreen() {
                 >
                   {isSelected ? (
                     <View style={styles.selectedCircle}>
-                      <Text style={styles.selectedDayText}>
-                        {item.day}
-                      </Text>
+                      <Text style={styles.selectedDayText}>{item.day}</Text>
                     </View>
                   ) : (
-                    <Text
-                      style={[
-                        styles.dayText,
-                        !item.currentMonth && styles.dayTextMuted,
-                      ]}
-                    >
+                    <Text style={[styles.dayText, !item.currentMonth && styles.dayTextMuted]}>
                       {item.day}
                     </Text>
                   )}
@@ -143,9 +124,7 @@ export default function CalendarScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 100 + insets.bottom }]}
-      >
+      <TouchableOpacity style={[styles.fab, { bottom: 100 + insets.bottom }]}>
         <Ionicons name="add" size={28} color={C.white} />
       </TouchableOpacity>
     </View>

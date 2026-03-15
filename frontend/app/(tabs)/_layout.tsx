@@ -21,17 +21,14 @@ export default function TabLayout() {
           fontSize: 12.25,
           fontWeight: '500',
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: '本日の予定',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'calendar' : 'calendar-outline'}
-              size={24}
-              color={color}
-            />
+            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
           ),
           tabBarLabelStyle: {
             fontSize: 12.25,
@@ -43,9 +40,7 @@ export default function TabLayout() {
         name="calendar"
         options={{
           title: 'カレンダー',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="calendar-outline" size={24} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="calendar-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -61,9 +56,7 @@ export default function TabLayout() {
         name="mypage"
         options={{
           title: 'マイページ',
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="person-outline" size={24} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
