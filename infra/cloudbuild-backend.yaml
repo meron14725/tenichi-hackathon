@@ -4,7 +4,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:$COMMIT_SHA'
+      - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:$_COMMIT_SHA'
       - '-t'
       - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:latest'
       - './backend'
@@ -23,7 +23,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'fastapi-backend'
-      - '--image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:$COMMIT_SHA'
+      - '--image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:$_COMMIT_SHA'
       - '--region=asia-northeast1'
       - '--memory=512Mi'
       - '--cpu=1'
@@ -38,7 +38,7 @@ steps:
       - '--timeout=60'
 
 images:
-  - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:$COMMIT_SHA'
+  - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:$_COMMIT_SHA'
   - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/fastapi-backend:latest'
 
 timeout: '600s'
