@@ -211,7 +211,7 @@ export default function HomeScreen() {
               style={[
                 styles.timelineLine,
                 {
-                  borderColor: item.past ? C.textMuted : C.textMuted,
+                  borderColor: C.textMuted,
                 },
               ]}
             />
