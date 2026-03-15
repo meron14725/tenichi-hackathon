@@ -32,8 +32,8 @@ steps:
       - '--port=8000'
       - '--ingress=all'
       - '--allow-unauthenticated'
-      - '--set-secrets=SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_KEY=SUPABASE_KEY:latest,JWT_SECRET=JWT_SECRET:latest,WEATHERAPI_KEY=WEATHERAPI_KEY:latest,OTP2_GRAPHQL_URL=OTP2_GRAPHQL_URL:latest'
-      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=asia-northeast1'
+      - '--set-secrets=SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_KEY=SUPABASE_KEY:latest,JWT_SECRET=JWT_SECRET:latest,WEATHERAPI_KEY=WEATHERAPI_KEY:latest,OTP2_GRAPHQL_URL=OTP2_GRAPHQL_URL:latest,DATABASE_URL=DATABASE_URL:latest'
+      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=asia-northeast1,ENVIRONMENT=production'
       - '--service-account=fastapi-sa@$PROJECT_ID.iam.gserviceaccount.com'
       - '--timeout=60'
 
