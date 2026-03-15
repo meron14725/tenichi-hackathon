@@ -1,10 +1,14 @@
 steps:
+  # Step 0: GCS から graph.obj をダウンロード（Git LFS では取得不可のため）
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', 'gs://${PROJECT_ID}_cloudbuild/otp2-data/graph.obj', 'otp2/data/graph.obj']
+
   # Step 1: Docker イメージをビルド（graph.obj含むため大きい）
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
-      - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:$COMMIT_SHA'
+      - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:$_COMMIT_SHA'
       - '-t'
       - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:latest'
       - './otp2'
@@ -25,9 +29,9 @@ steps:
       - 'run'
       - 'deploy'
       - 'otp2-server'
-      - '--image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:$COMMIT_SHA'
+      - '--image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:$_COMMIT_SHA'
       - '--region=asia-northeast1'
-      - '--memory=4Gi'
+      - '--memory=6Gi'
       - '--cpu=2'
       - '--min-instances=1'
       - '--max-instances=2'
@@ -36,9 +40,11 @@ steps:
       - '--no-allow-unauthenticated'
       - '--service-account=otp2-sa@$PROJECT_ID.iam.gserviceaccount.com'
       - '--timeout=300'
+      - '--cpu-boost'
+      - '--startup-probe=httpGet.path=/otp/,httpGet.port=8080,initialDelaySeconds=30,periodSeconds=10,timeoutSeconds=5,failureThreshold=30'
 
 images:
-  - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:$COMMIT_SHA'
+  - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:$_COMMIT_SHA'
   - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/app/otp2-server:latest'
 
 timeout: '1800s'

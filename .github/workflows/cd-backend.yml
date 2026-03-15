@@ -1,13 +1,14 @@
-name: Backend CI
+name: Backend CD (develop)
 
 on:
-  pull_request:
-    branches: [develop, main]
+  push:
+    branches: [develop]
     paths:
       - "backend/**"
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   ci:
@@ -63,3 +64,31 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://tenichi:tenichi@localhost:5432/tenichi_test
           JWT_SECRET: test-secret-key
           OTP2_GRAPHQL_URL: http://localhost:8080/otp/gtfs/v1
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Submit Cloud Build
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          gcloud builds submit \
+            --config=infra/cloudbuild-backend.yaml \
+            --substitutions=_COMMIT_SHA="$COMMIT_SHA" \
+            --project="$GCP_PROJECT_ID"
+        timeout-minutes: 15
