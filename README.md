@@ -25,7 +25,13 @@ cp .env.example .env
 |--------|------|
 | `JWT_SECRET` | JWT トークン署名用のシークレットキー |
 | `WEATHERAPI_KEY` | WeatherAPI.com の API キー |
-| `GEMINI_API_KEY` | Google Gemini API キー |
+| `GCP_PROJECT_ID` | GCP プロジェクトID（Vertex AI 用） |
+| `GCP_LOCATION` | GCP リージョン（デフォルト: `asia-northeast1`） |
+
+> **Note:** Gemini (Vertex AI) を利用するには、ローカル環境で ADC を設定してください:
+> ```bash
+> gcloud auth application-default login
+> ```
 
 ### 2. OTP2 グラフデータの取得
 

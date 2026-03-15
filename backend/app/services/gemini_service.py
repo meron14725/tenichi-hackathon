@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.genai import types
 
 from app.config import settings
 from app.exceptions import AppError
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 GEMINI_MODEL = "gemini-2.0-flash"
 MAX_INPUT_LENGTH = 2000
 
-_initialized = False
+_client: genai.Client | None = None
 
 TODAY_SYSTEM_INSTRUCTION = (
     "あなたは日本語で応答するスケジュールアシスタントです。"
@@ -31,29 +31,35 @@ SCHEDULE_SYSTEM_INSTRUCTION = (
 )
 
 
-def _ensure_configured() -> None:
-    global _initialized
-    if not _initialized:
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
         if not settings.GCP_PROJECT_ID:
             raise AppError(
                 "SUGGESTIONS_UNAVAILABLE",
                 "GCP project is not configured",
                 503,
             )
-        vertexai.init(project=settings.GCP_PROJECT_ID, location=settings.GCP_LOCATION)
-        _initialized = True
+        _client = genai.Client(
+            vertexai=True,
+            project=settings.GCP_PROJECT_ID,
+            location=settings.GCP_LOCATION,
+        )
+    return _client
 
 
 async def _generate(prompt: str, system_instruction: str) -> str:
     """共通のGemini API呼び出し."""
-    _ensure_configured()
+    client = _get_client()
 
     try:
-        model = GenerativeModel(
-            GEMINI_MODEL,
-            system_instruction=system_instruction,
+        response = await client.aio.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+            ),
         )
-        response = await model.generate_content_async(prompt)
 
         if not response.candidates:
             logger.warning("Gemini response was blocked by safety filters")
