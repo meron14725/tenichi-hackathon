@@ -1,6 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Animated,
   Modal,
   Pressable,
   ScrollView,
@@ -57,7 +56,7 @@ function TimePickerModal({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <Pressable style={timePickerStyles.backdrop} onPress={onClose}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={timePickerStyles.card}>
+        <Pressable onPress={e => e.stopPropagation()} style={timePickerStyles.card}>
           <Text style={timePickerStyles.title}>到着時間を選択</Text>
           <View style={timePickerStyles.pickerRow}>
             {/* Hours */}
@@ -67,7 +66,7 @@ function TimePickerModal({
                 style={timePickerStyles.scrollColumn}
                 showsVerticalScrollIndicator={false}
               >
-                {HOURS.map((h) => (
+                {HOURS.map(h => (
                   <TouchableOpacity
                     key={h}
                     style={[timePickerStyles.cell, hour === h && timePickerStyles.cellSelected]}
@@ -95,7 +94,7 @@ function TimePickerModal({
                 style={timePickerStyles.scrollColumn}
                 showsVerticalScrollIndicator={false}
               >
-                {MINUTES.map((m) => (
+                {MINUTES.map(m => (
                   <TouchableOpacity
                     key={m}
                     style={[timePickerStyles.cell, minute === m && timePickerStyles.cellSelected]}
@@ -289,7 +288,7 @@ export default function ScheduleCreateScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>スケジュールの種類</Text>
           <View style={styles.categoryRow}>
-            {SCHEDULE_CATEGORIES.map((cat) => {
+            {SCHEDULE_CATEGORIES.map(cat => {
               const isSelected = selectedCategory === cat.label;
               return (
                 <TouchableOpacity
@@ -340,9 +339,7 @@ export default function ScheduleCreateScreen() {
                   size={21}
                   color={useLastTrain ? C.textMuted : C.placeholder}
                 />
-                <Text
-                  style={[styles.timeText, useLastTrain && { color: C.textMuted }]}
-                >
+                <Text style={[styles.timeText, useLastTrain && { color: C.textMuted }]}>
                   {formatTime(arrivalTime)}
                 </Text>
               </View>
