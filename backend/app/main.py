@@ -14,6 +14,7 @@ from app.api.tags import router as tags_router
 from app.api.templates import router as templates_router
 from app.api.users import router as users_router
 from app.api.weather import router as weather_router
+from app.config import settings
 from app.exceptions import (
     AppError,
     app_error_handler,
@@ -23,9 +24,18 @@ from app.exceptions import (
 
 app = FastAPI(title="Tenichi API")
 
+_ALLOWED_ORIGINS = (
+    ["*"]
+    if settings.ENVIRONMENT == "development"
+    else [
+        "http://localhost:8081",
+        "https://schedule-t-y-k-app.web.app",
+    ]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
