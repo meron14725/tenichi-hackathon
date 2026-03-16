@@ -70,13 +70,16 @@ function RoutinePickerModal({
   selectedId,
   onSelect,
   onClose,
+  bottomInset,
 }: {
   visible: boolean;
   routines: Routine[];
   selectedId: string;
   onSelect: (r: Routine) => void;
   onClose: () => void;
+  bottomInset: number;
 }) {
+  const safeBottom = Math.max(bottomInset, 20);
   const slideAnim = useRef(new Animated.Value(600)).current;
 
   useEffect(() => {
@@ -184,7 +187,10 @@ function RoutinePickerModal({
             </View>
 
             {/* Close */}
-            <TouchableOpacity style={pickerStyles.closeButton} onPress={handleClose}>
+            <TouchableOpacity
+              style={[pickerStyles.closeButton, { paddingBottom: 20 + safeBottom }]}
+              onPress={handleClose}
+            >
               <Text style={pickerStyles.closeText}>キャンセル</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -201,20 +207,19 @@ const pickerStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   cardWrap: {
+    maxHeight: '80%',
     width: '100%',
   },
   card: {
     backgroundColor: C.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    width: '100%',
-    overflow: 'hidden',
     shadowColor: '#0F171E',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 12,
-    maxHeight: '85%',
+    paddingBottom: 40,
   },
   header: {
     paddingHorizontal: 20,
@@ -242,6 +247,7 @@ const pickerStyles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: 12,
+    paddingBottom: 4,
     gap: 6,
   },
   routineItem: {
@@ -295,7 +301,8 @@ const pickerStyles = StyleSheet.create({
   },
   closeButton: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 34,
     marginTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E8EAEC',
@@ -581,6 +588,7 @@ export default function RegisterScreen() {
           setSelectedRoutine(routine);
         }}
         onClose={() => setShowRoutinePicker(false)}
+        bottomInset={insets.bottom}
       />
 
       {/* Success Modal */}
