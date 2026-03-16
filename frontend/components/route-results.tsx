@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiPost } from '../lib/api-client';
@@ -75,32 +75,41 @@ export default function RouteResults({
   const [data, setData] = useState<RouteSearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchRoutes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const body: RouteSearchRequest = {
-      destination_lat: destinationLat,
-      destination_lon: destinationLon,
-      travel_mode: activeMode,
-      arrival_time: arrivalTime,
-    };
-
-    try {
-      const result = await apiPost<RouteSearchResponse>('/routes/search', body);
-      setData(result);
-    } catch (e: any) {
-      setError(e.message || 'ルートの取得に失敗しました');
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [destinationLat, destinationLon, arrivalTime, activeMode]);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function fetchRoutes() {
+      setLoading(true);
+      setError(null);
+      setData(null);
+
+      const body: RouteSearchRequest = {
+        destination_lat: destinationLat,
+        destination_lon: destinationLon,
+        travel_mode: activeMode,
+        arrival_time: arrivalTime,
+      };
+
+      try {
+        const result = await apiPost<RouteSearchResponse>('/routes/search', body);
+        if (!cancelled) setData(result);
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e.message || 'ルートの取得に失敗しました');
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
     fetchRoutes();
-  }, [fetchRoutes]);
+    return () => {
+      cancelled = true;
+    };
+  }, [destinationLat, destinationLon, arrivalTime, activeMode, retryCount]);
 
   return (
     <View style={styles.container}>
@@ -140,7 +149,7 @@ export default function RouteResults({
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={32} color={C.textMuted} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchRoutes}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => setRetryCount(c => c + 1)}>
             <Text style={styles.retryText}>再試行</Text>
           </TouchableOpacity>
         </View>
