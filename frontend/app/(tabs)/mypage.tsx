@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { apiGet, BASE_URL, clearToken } from '@/lib/api-client';
+import { apiGet, apiPost, clearToken } from '@/lib/api-client';
 
 const C = {
   primary: '#436F9B',
@@ -52,8 +54,8 @@ export default function MyPageScreen() {
         ]);
         setProfile(p);
         setSettings(s);
-      } catch {
-        // トークンがない場合などはエラーを無視して空表示
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
       } finally {
         setLoading(false);
       }
@@ -61,21 +63,27 @@ export default function MyPageScreen() {
     fetchData();
   }, []);
 
-  async function handleLogout() {
-    const confirmed = window?.confirm?.('ログアウトしますか？') ?? true;
-    if (!confirmed) return;
-
+  async function doLogout() {
     setLoggingOut(true);
     try {
-      await fetch(`${BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } catch {
-      // ログアウトAPI失敗してもローカルトークンはクリアする
+      await apiPost('/auth/logout', {});
+    } catch (error) {
+      console.error('Logout API failed:', error);
     }
     clearToken();
     router.replace('/auth/login');
+  }
+
+  function handleLogout() {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('ログアウトしますか？');
+      if (confirmed) doLogout();
+    } else {
+      Alert.alert('ログアウト', 'ログアウトしますか？', [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: 'ログアウト', style: 'destructive', onPress: doLogout },
+      ]);
+    }
   }
 
   function renderInfoRow(icon: React.ReactNode, label: string, value: string) {
