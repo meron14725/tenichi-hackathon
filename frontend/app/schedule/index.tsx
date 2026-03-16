@@ -28,6 +28,10 @@ export default function ScheduleIndexScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color={C.white} />
+          <Text style={styles.backText}>カレンダー</Text>
+        </TouchableOpacity>
         <View style={styles.chatRow}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={22} color={C.white} />
@@ -113,7 +117,9 @@ export default function ScheduleIndexScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.headerBg },
-  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, paddingBottom: 24.5 },
+  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, paddingBottom: 24.5, gap: 12 },
+  backButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backText: { fontSize: 14, fontWeight: '500', color: C.white },
   chatRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   avatar: {
     width: 42,
