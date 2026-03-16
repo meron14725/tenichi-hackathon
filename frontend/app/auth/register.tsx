@@ -11,8 +11,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BASE_URL, setToken } from '@/lib/api-client';
 
 const C = {
   primary: '#436F9B',
@@ -24,8 +25,6 @@ const C = {
   placeholder: '#98A6AE',
   error: '#D94040',
 };
-
-const BASE_URL = 'https://fastapi-backend-825512055944.asia-northeast1.run.app/api/v1';
 
 type FieldErrors = {
   email?: string;
@@ -41,6 +40,7 @@ function validate(fields: {
   name: string;
   preparationMinutes: string;
   homeAddress: string;
+  homeLat: number | null;
 }): FieldErrors {
   const errors: FieldErrors = {};
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +49,6 @@ function validate(fields: {
     errors.email = 'メールアドレスのフォーマットにしてください。';
   }
 
-  // Password: 英数字2種以上 & 8文字以上100文字以下
   const hasLetter = /[a-zA-Z]/.test(fields.password);
   const hasDigit = /\d/.test(fields.password);
   if (fields.password.length < 8 || fields.password.length > 100 || !hasLetter || !hasDigit) {
@@ -65,8 +64,12 @@ function validate(fields: {
     errors.preparation_minutes = '身支度時間を正しく入力してください。';
   }
 
-  if (fields.homeAddress.length < 1 || fields.homeAddress.length > 200) {
-    errors.home_address = '住所は1文字以上200文字以下にしてください。';
+  if (!fields.homeAddress || fields.homeAddress.length > 200) {
+    errors.home_address = '住所を選択してください。';
+  }
+
+  if (fields.homeLat === null) {
+    errors.home_address = 'マップから住所を選択してください。';
   }
 
   return errors;
@@ -75,13 +78,22 @@ function validate(fields: {
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    home_lat?: string;
+    home_lon?: string;
+    home_address?: string;
+  }>();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [preparationMinutes, setPreparationMinutes] = useState('');
-  const [homeAddress, setHomeAddress] = useState('');
+
+  // 住所はマップピッカーから受け取る
+  const homeAddress = params.home_address ?? '';
+  const homeLat = params.home_lat ? parseFloat(params.home_lat) : null;
+  const homeLon = params.home_lon ? parseFloat(params.home_lon) : null;
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState('');
@@ -98,7 +110,14 @@ export default function RegisterScreen() {
     setApiError('');
     setFieldErrors({});
 
-    const errors = validate({ email, password, name, preparationMinutes, homeAddress });
+    const errors = validate({
+      email,
+      password,
+      name,
+      preparationMinutes,
+      homeAddress,
+      homeLat,
+    });
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -114,29 +133,27 @@ export default function RegisterScreen() {
           password,
           name,
           home_address: homeAddress,
-          home_lat: 35.6762, // TODO: 住所からジオコーディング
-          home_lon: 139.6503,
+          home_lat: homeLat,
+          home_lon: homeLon,
           preparation_minutes: Number(preparationMinutes),
           reminder_minutes_before: 5,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const errorData = await res.json().catch(() => null);
         if (res.status === 409) {
           setApiError('このメールアドレスは既に登録されています。');
-        } else if (data?.detail) {
-          setApiError(data.detail);
+        } else if (errorData?.detail) {
+          setApiError(errorData.detail);
         } else {
           setApiError('予期せぬエラーが発生しました。しばらく待って再度試してください。');
         }
         return;
       }
 
-      const data = await res.json();
-      // TODO: AsyncStorageにトークンを保存する
-      // await AsyncStorage.setItem('access_token', data.access_token);
-      // await AsyncStorage.setItem('refresh_token', data.refresh_token);
+      const { access_token } = await res.json();
+      setToken(access_token);
 
       router.replace('/(tabs)/calendar');
     } catch {
@@ -156,7 +173,7 @@ export default function RegisterScreen() {
       keyboardType?: 'default' | 'email-address' | 'numeric';
       secureTextEntry?: boolean;
       autoCapitalize?: 'none' | 'sentences';
-    },
+    }
   ) {
     const err = options.errorKey ? fieldErrors[options.errorKey] : undefined;
     const isPassword = options.secureTextEntry;
@@ -245,10 +262,35 @@ export default function RegisterScreen() {
               keyboardType: 'numeric',
             })}
 
-            {renderInput('自宅住所', homeAddress, setHomeAddress, {
-              placeholder: '住所を入力',
-              errorKey: 'home_address',
-            })}
+            {/* 住所選択 - マップピッカーで選択 */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>自宅住所</Text>
+              <TouchableOpacity
+                style={[styles.addressButton, fieldErrors.home_address && styles.inputError]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/schedule/destination-picker',
+                    params: { returnTo: 'auth/register' },
+                  })
+                }
+              >
+                <Ionicons
+                  name="location"
+                  size={18}
+                  color={homeAddress ? C.primary : C.placeholder}
+                />
+                <Text
+                  style={[styles.addressText, !homeAddress && styles.addressPlaceholder]}
+                  numberOfLines={1}
+                >
+                  {homeAddress || 'マップから住所を選択'}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
+              </TouchableOpacity>
+              {fieldErrors.home_address && (
+                <Text style={styles.fieldError}>{fieldErrors.home_address}</Text>
+              )}
+            </View>
 
             <TouchableOpacity
               style={[styles.button, (!allFilled || loading) && styles.buttonDisabled]}
@@ -387,6 +429,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: C.error,
     marginTop: 4,
+  },
+
+  // Address picker button
+  addressButton: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: C.bg,
+    borderRadius: 7,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: C.white,
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 15,
+    color: C.textPrimary,
+  },
+  addressPlaceholder: {
+    color: C.placeholder,
   },
 
   // Button

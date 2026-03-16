@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BASE_URL, setToken } from '@/lib/api-client';
 
 const C = {
   primary: '#436F9B',
@@ -24,8 +25,6 @@ const C = {
   placeholder: '#98A6AE',
   error: '#D94040',
 };
-
-const BASE_URL = 'https://fastapi-backend-825512055944.asia-northeast1.run.app/api/v1';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -68,10 +67,8 @@ export default function LoginScreen() {
         return;
       }
 
-      const data = await res.json();
-      // TODO: AsyncStorageにトークンを保存する
-      // await AsyncStorage.setItem('access_token', data.access_token);
-      // await AsyncStorage.setItem('refresh_token', data.refresh_token);
+      const { access_token } = await res.json();
+      setToken(access_token);
 
       router.replace('/(tabs)');
     } catch {
@@ -142,11 +139,7 @@ export default function LoginScreen() {
                   style={styles.eyeButton}
                   onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Ionicons
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={20}
-                    color={C.textMuted}
-                  />
+                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={C.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
