@@ -73,17 +73,20 @@ export default function RegisterScreen() {
   const [belongings, setBelongings] = useState<string[]>(['財布', '充電器']);
   const [newBelonging, setNewBelonging] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
-  const [routineSearch, setRoutineSearch] = useState('');
+  const [selectedRoutine, setSelectedRoutine] = useState<Routine>(ROUTINES[0]);
+  const [showRoutinePicker, setShowRoutinePicker] = useState(false);
+  const [routineBelongings, setRoutineBelongings] = useState<string[]>([]);
+  const [newRoutineBelonging, setNewRoutineBelonging] = useState('');
 
   function handleSave() {
     setShowModal(true);
   }
 
-  function handleRoutineSelect(routine: Routine) {
-    setSelectedRoutine(routine);
-    setTitle(routine.title);
-    setShowModal(true);
+  function addRoutineBelonging() {
+    if (newRoutineBelonging.trim()) {
+      setRoutineBelongings(prev => [...prev, newRoutineBelonging.trim()]);
+      setNewRoutineBelonging('');
+    }
   }
 
   function removeBelonging(index: number) {
@@ -100,13 +103,13 @@ export default function RegisterScreen() {
   function handleBack() {
     if (step === 'form' || step === 'routine') {
       setStep('method');
-      setSelectedRoutine(null);
+      setSelectedRoutine(ROUTINES[0]);
     } else {
       router.back();
     }
   }
 
-  const canSave = step === 'form' || (step === 'routine' && selectedRoutine);
+  const canSave = step === 'form' || step === 'routine';
 
   function renderTypeIcon(item: (typeof SCHEDULE_TYPES)[number], color: string) {
     const size = 20;
@@ -115,10 +118,6 @@ export default function RegisterScreen() {
     if (item.iconSet === 'fa5') return <FontAwesome5 name={item.icon} size={size} color={color} />;
     return <MaterialCommunityIcons name={item.icon as any} size={size} color={color} />;
   }
-
-  const filteredRoutines = routineSearch
-    ? ROUTINES.filter(r => r.title.includes(routineSearch))
-    : ROUTINES;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -153,11 +152,17 @@ export default function RegisterScreen() {
               <Text style={styles.methodText}>新しく登録</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.methodCard, step === 'routine' && styles.methodCardSelected]}
+              style={[styles.methodCard, step === 'routine' && styles.methodCardRoutineSelected]}
               onPress={() => setStep('routine')}
             >
-              <MaterialCommunityIcons name="arrow-u-left-top" size={28} color={C.textPrimary} />
-              <Text style={styles.methodText}>ルーティンで登録</Text>
+              <MaterialCommunityIcons
+                name="arrow-u-left-top"
+                size={28}
+                color={step === 'routine' ? C.textPrimary : C.textPrimary}
+              />
+              <Text style={[styles.methodText, step === 'routine' && { fontWeight: '700' }]}>
+                ルーティンで登録
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -250,61 +255,129 @@ export default function RegisterScreen() {
           </>
         )}
 
-        {/* Routine selection */}
+        {/* Routine registration */}
         {step === 'routine' && (
           <>
-            <View style={styles.searchBar}>
-              <Ionicons name="search" size={18} color={C.placeholder} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="ルーティンを検索"
-                placeholderTextColor={C.placeholder}
-                value={routineSearch}
-                onChangeText={setRoutineSearch}
-              />
+            {/* Selected routine */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>ルーティン</Text>
+              <TouchableOpacity
+                style={styles.selectedRoutineCard}
+                onPress={() => setShowRoutinePicker(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.selectedRoutineInner}>
+                  <View style={styles.selectedRoutineRow}>
+                    <Ionicons name="briefcase-outline" size={21} color={C.accent} />
+                    <Text style={styles.selectedRoutineTitle}>{selectedRoutine.title}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={21} color={C.textMuted} />
+                </View>
+              </TouchableOpacity>
             </View>
 
+            {/* Belongings for routine */}
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>ルーティンを選択</Text>
-              {filteredRoutines.map(routine => (
-                <TouchableOpacity
-                  key={routine.id}
-                  style={[
-                    styles.routineCard,
-                    selectedRoutine?.id === routine.id && styles.routineCardSelected,
-                  ]}
-                  onPress={() => handleRoutineSelect(routine)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.routineCardInner, { borderLeftColor: routine.accentColor }]}>
-                    <View style={styles.routineCardContent}>
-                      <Text style={styles.routineCardTitle}>{routine.title}</Text>
-                      <View style={styles.stepsRow}>
-                        {routine.steps.map((s, i) => (
-                          <View key={`${routine.id}-${i}`} style={styles.stepItem}>
-                            <View style={styles.stepDotRow}>
-                              <View
-                                style={[styles.stepDot, { backgroundColor: routine.accentColor }]}
-                              />
-                              {i < routine.steps.length - 1 && (
-                                <View
-                                  style={[styles.stepLine, { backgroundColor: C.stepConnector }]}
-                                />
-                              )}
-                            </View>
-                            <Text style={styles.stepText}>{s}</Text>
-                          </View>
-                        ))}
+              <Text style={styles.sectionLabel}>持ち物</Text>
+              <View style={styles.belongingsCard}>
+                {routineBelongings.length > 0 ? (
+                  routineBelongings.map((item, i) => (
+                    <View key={`rb-${i}`}>
+                      <View style={styles.belongingRow}>
+                        <Text style={styles.belongingText}>{item}</Text>
+                        <TouchableOpacity
+                          onPress={() =>
+                            setRoutineBelongings(prev => prev.filter((_, idx) => idx !== i))
+                          }
+                        >
+                          <Ionicons name="remove-circle" size={22} color="#E57373" />
+                        </TouchableOpacity>
                       </View>
+                      {i < routineBelongings.length - 1 && <View style={styles.belongingDivider} />}
                     </View>
-                    <Ionicons name="chevron-forward" size={21} color={C.textMuted} />
-                  </View>
+                  ))
+                ) : (
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="例：名刺"
+                    placeholderTextColor={C.placeholder}
+                    value={newRoutineBelonging}
+                    onChangeText={setNewRoutineBelonging}
+                    onSubmitEditing={addRoutineBelonging}
+                  />
+                )}
+              </View>
+              <View style={styles.addBelongingRowEnd}>
+                <TouchableOpacity
+                  style={styles.addBelongingButton}
+                  onPress={() => {
+                    if (routineBelongings.length === 0 && newRoutineBelonging.trim()) {
+                      addRoutineBelonging();
+                    } else {
+                      setRoutineBelongings(prev => [...prev, '']);
+                    }
+                  }}
+                >
+                  <Ionicons name="add" size={16} color={C.primary} />
+                  <Text style={styles.addBelongingButtonText}>持ち物を追加</Text>
                 </TouchableOpacity>
-              ))}
+              </View>
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* Routine Picker Modal */}
+      <Modal visible={showRoutinePicker} transparent animationType="slide">
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>ルーティンを選択</Text>
+              <TouchableOpacity onPress={() => setShowRoutinePicker(false)}>
+                <Ionicons name="close" size={24} color={C.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.pickerScroll}>
+              {ROUTINES.map(routine => (
+                <TouchableOpacity
+                  key={routine.id}
+                  style={[
+                    styles.pickerRoutineCard,
+                    selectedRoutine.id === routine.id && styles.pickerRoutineCardSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedRoutine(routine);
+                    setShowRoutinePicker(false);
+                  }}
+                >
+                  <View
+                    style={[styles.pickerRoutineInner, { borderLeftColor: routine.accentColor }]}
+                  >
+                    <Text style={styles.pickerRoutineTitle}>{routine.title}</Text>
+                    <View style={styles.stepsRow}>
+                      {routine.steps.map((s, i) => (
+                        <View key={`pick-${routine.id}-${i}`} style={styles.stepItem}>
+                          <View style={styles.stepDotRow}>
+                            <View
+                              style={[styles.stepDot, { backgroundColor: routine.accentColor }]}
+                            />
+                            {i < routine.steps.length - 1 && (
+                              <View
+                                style={[styles.stepLine, { backgroundColor: C.stepConnector }]}
+                              />
+                            )}
+                          </View>
+                          <Text style={styles.stepText}>{s}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Success Modal */}
       <Modal visible={showModal} transparent animationType="fade">
@@ -377,6 +450,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   methodCardSelected: { borderWidth: 2, borderColor: C.primary },
+  methodCardRoutineSelected: { backgroundColor: '#E6EDF6', borderWidth: 1, borderColor: C.primary },
   methodText: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
 
   // Form card
@@ -432,38 +506,59 @@ const styles = StyleSheet.create({
   },
   departureText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
 
-  // Search bar
-  searchBar: {
+  // Selected routine card
+  selectedRoutineCard: {
+    backgroundColor: C.white,
+    borderRadius: 10.5,
+    overflow: 'hidden',
+  },
+  selectedRoutineInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.white,
-    borderRadius: 7,
-    paddingHorizontal: 12.25,
-    gap: 7,
-    height: 40,
+    justifyContent: 'space-between',
+    padding: 14,
   },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: '400', color: C.textPrimary },
+  selectedRoutineRow: { flexDirection: 'row', alignItems: 'center', gap: 10.5, flex: 1 },
+  selectedRoutineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
+  addBelongingRowEnd: { alignItems: 'flex-end' },
 
-  // Routine cards
-  routineCard: {
+  // Routine picker modal
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerContent: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    maxHeight: '70%',
+    padding: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pickerTitle: { fontSize: 17.5, fontWeight: '700', color: C.textPrimary },
+  pickerScroll: { gap: 12 },
+  pickerRoutineCard: {
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 7,
     overflow: 'hidden',
+    marginBottom: 12,
   },
-  routineCardSelected: { borderColor: C.primary, borderWidth: 2 },
-  routineCardInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  pickerRoutineCardSelected: { borderColor: C.primary, borderWidth: 2 },
+  pickerRoutineInner: {
     borderLeftWidth: 6,
     borderRadius: 7,
     paddingVertical: 12.25,
     paddingHorizontal: 17.5,
-    gap: 8,
+    gap: 12.25,
   },
-  routineCardContent: { flex: 1, gap: 12.25 },
-  routineCardTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
+  pickerRoutineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
   stepsRow: { flexDirection: 'row', gap: 8 },
   stepItem: { alignItems: 'center', gap: 7 },
   stepDotRow: { flexDirection: 'row', alignItems: 'center' },
