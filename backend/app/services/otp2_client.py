@@ -31,7 +31,7 @@ def _get_auth_headers() -> dict[str, str]:
 def _build_modes(travel_mode: str) -> str:
     """travel_mode を OTP2 GraphQL modes フラグメントに変換."""
     if travel_mode == "transit":
-        return "{ transit: { transit: [{ mode: RAIL }, { mode: SUBWAY }, { mode: BUS }] }, direct: [WALK] }"
+        return "{ transit: { transit: [{ mode: RAIL }, { mode: SUBWAY }, { mode: BUS }] } }"
     mode_map = {
         "walking": "WALK",
         "cycling": "BICYCLE",
