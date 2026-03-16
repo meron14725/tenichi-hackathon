@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 
 // Colors
 const C = {
@@ -18,23 +18,28 @@ const C = {
   textMuted: '#B5BFC5',
   black: '#000000',
   white: '#FFFFFF',
-  trainBadgeBg: '#B5BFC5',
   fabBg: '#436F9B',
   warmText: '#AA8A5E',
+  lineTJ: '#436F9B', // headerBgと同色だが路線カラーとして意味的に分離
+  lineJS: '#E2725B',
 };
 
 // Mock data
 const TIMELINE = [
   {
     time: '08:34',
-    title: '荻窪発',
-    badge: '中央線快速',
+    title: '志木発',
+    lineCode: 'TJ',
+    lineName: '東武東上線準急',
+    lineColor: C.lineTJ,
     past: true,
   },
   {
     time: '08:52',
-    title: '新宿乗換',
-    badge: '山手線',
+    title: '池袋乗換',
+    lineCode: 'JS',
+    lineName: 'JR湘南新宿ライン快速',
+    lineColor: C.lineJS,
     past: true,
   },
   {
@@ -90,10 +95,7 @@ export default function HomeScreen() {
           </View>
           {/* Chat bubble */}
           <View style={styles.chatBubble}>
-            <Text style={styles.chatText}>
-              おはよう！昨日はよく眠れたかな？{'\n'}
-              本日15時から降水確率70%なので、傘が必要かも！
-            </Text>
+            <Text style={styles.chatText}>明日の準備をしよう！</Text>
           </View>
         </View>
         {/* Menu button */}
@@ -110,21 +112,21 @@ export default function HomeScreen() {
         {/* Todo header */}
         <View style={styles.todoHeader}>
           <MaterialCommunityIcons name="clipboard-text-outline" size={24.5} color={C.textPrimary} />
-          <Text style={styles.todoHeaderText}>本日すること！</Text>
+          <Text style={styles.todoHeaderText}>前日までに準備すること！</Text>
         </View>
         {/* Todo body */}
         <View style={styles.todoBody}>
           {/* Checked item */}
           <View style={styles.todoRow}>
             <Ionicons name="checkbox" size={22} color="#4CAF50" />
-            <Text style={styles.todoCheckedText}>MTGの準備</Text>
+            <Text style={styles.todoCheckedText}>折りたたみ傘</Text>
           </View>
           {/* Dashed divider */}
           <View style={styles.dashedDivider} />
           {/* Unchecked item */}
           <View style={styles.todoRow}>
             <View style={styles.uncheckedBox} />
-            <Text style={styles.todoText}>スーパーで買い物</Text>
+            <Text style={styles.todoText}>スーツ</Text>
           </View>
         </View>
       </View>
@@ -151,9 +153,15 @@ export default function HomeScreen() {
 
   function renderScheduleHeader() {
     return (
-      <View style={styles.scheduleHeader}>
-        <Text style={styles.scheduleDate}>3/4 (木)</Text>
-        <Text style={styles.scheduleTitle}>本日の予定</Text>
+      <View style={styles.scheduleHeaderRow}>
+        <View style={styles.scheduleHeaderLeft}>
+          <Text style={styles.scheduleDate}>3/5 (木)</Text>
+          <Text style={styles.scheduleTitle}>明日の予定</Text>
+        </View>
+        <TouchableOpacity style={styles.mapButton}>
+          <Ionicons name="map-outline" size={14} color={C.textSecondary} />
+          <Text style={styles.mapButtonText}>マップ</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -161,7 +169,7 @@ export default function HomeScreen() {
   function renderRoutineCard() {
     return (
       <View style={styles.routineCard}>
-        <FontAwesome5 name="briefcase" size={20} color={C.routineBorder} />
+        <MaterialCommunityIcons name="laptop" size={20} color={C.routineBorder} />
         <Text style={styles.routineTitle}>仕事ルーティン①</Text>
       </View>
     );
@@ -200,12 +208,17 @@ export default function HomeScreen() {
 
         {/* Content column */}
         <View style={styles.timelineContent}>
-          {/* Station with badge */}
-          {item.badge && (
+          {/* Station with train line badges */}
+          {item.lineCode && (
             <View style={styles.stationRow}>
               <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
-              <View style={styles.trainBadge}>
-                <Text style={styles.trainBadgeText}>{item.badge}</Text>
+              <View style={styles.lineBadgeRow}>
+                <View style={styles.lineCodeBadge}>
+                  <Text style={[styles.lineCodeText, { color: textColor }]}>{item.lineCode}</Text>
+                </View>
+                <View style={[styles.lineNameBadge, { backgroundColor: item.lineColor }]}>
+                  <Text style={styles.lineNameText}>{item.lineName}</Text>
+                </View>
               </View>
             </View>
           )}
@@ -214,7 +227,10 @@ export default function HomeScreen() {
           {item.walk && (
             <View style={styles.stationRow}>
               <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
-              <Text style={styles.walkText}>🚶{item.walk}</Text>
+              <View style={styles.walkRow}>
+                <MaterialCommunityIcons name="walk" size={16} color={C.textSecondary} />
+                <Text style={styles.walkText}>{item.walk}</Text>
+              </View>
             </View>
           )}
 
@@ -233,7 +249,7 @@ export default function HomeScreen() {
           )}
 
           {/* Simple station (no badge, no walk, no chevron) */}
-          {!item.badge && !item.walk && !item.hasChevron && (
+          {!item.lineCode && !item.walk && !item.hasChevron && (
             <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
           )}
         </View>
@@ -440,7 +456,12 @@ const styles = StyleSheet.create({
   },
 
   // Schedule header
-  scheduleHeader: {
+  scheduleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  scheduleHeaderLeft: {
     gap: 2,
   },
   scheduleDate: {
@@ -452,6 +473,21 @@ const styles = StyleSheet.create({
     fontSize: 17.5,
     fontWeight: '700',
     color: C.black,
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: C.textMuted,
+    borderRadius: 10000,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  mapButtonText: {
+    fontSize: 12.25,
+    fontWeight: '500',
+    color: C.textSecondary,
   },
 
   // Routine card
@@ -513,27 +549,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
   stationName: {
     fontSize: 14,
     fontWeight: '700',
   },
-  trainBadge: {
-    backgroundColor: C.trainBadgeBg,
-    borderRadius: 4,
+  lineBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  lineCodeBadge: {
+    borderWidth: 1,
+    borderColor: C.textMuted,
+    borderRadius: 5.25,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  lineCodeText: {
+    fontSize: 12.25,
+    fontWeight: '500',
+  },
+  lineNameBadge: {
+    borderRadius: 5.25,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  trainBadgeText: {
-    fontSize: 11,
+  lineNameText: {
+    fontSize: 12.25,
     fontWeight: '500',
     color: C.white,
+  },
+  walkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   walkText: {
     fontSize: 12.25,
     fontWeight: '400',
     color: C.textSecondary,
-    marginLeft: 4,
   },
 
   // Event card
