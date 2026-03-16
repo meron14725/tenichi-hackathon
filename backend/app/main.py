@@ -14,7 +14,6 @@ from app.api.tags import router as tags_router
 from app.api.templates import router as templates_router
 from app.api.users import router as users_router
 from app.api.weather import router as weather_router
-from app.config import settings
 from app.exceptions import (
     AppError,
     app_error_handler,
