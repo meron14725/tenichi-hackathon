@@ -20,7 +20,7 @@ const C = {
   white: '#FFFFFF',
   fabBg: '#436F9B',
   warmText: '#AA8A5E',
-  lineTJ: '#436F9B',
+  lineTJ: '#436F9B', // headerBgと同色だが路線カラーとして意味的に分離
   lineJS: '#E2725B',
 };
 

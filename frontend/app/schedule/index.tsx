@@ -79,7 +79,11 @@ export default function ScheduleIndexScreen() {
               <Text style={styles.weatherNote}>午後から雨</Text>
             </View>
             <View style={styles.trainCard}>
-              <MaterialCommunityIcons name="chart-timeline-variant" size={28} color={C.textPrimary} />
+              <MaterialCommunityIcons
+                name="chart-timeline-variant"
+                size={28}
+                color={C.textPrimary}
+              />
               <Text style={styles.trainTime}>スケジュール未定</Text>
             </View>
           </View>
