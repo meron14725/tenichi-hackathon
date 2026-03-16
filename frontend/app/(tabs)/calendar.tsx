@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 const C = {
@@ -52,6 +53,7 @@ function getCalendarDays(year: number, month: number) {
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [selectedDay, setSelectedDay] = useState(3);
   const year = 2025;
   const month = 2; // March (0-indexed)
@@ -98,7 +100,10 @@ export default function CalendarScreen() {
                   key={`${wi}-${di}`}
                   style={styles.dayCell}
                   onPress={() => {
-                    if (item.currentMonth) setSelectedDay(item.day);
+                    if (item.currentMonth) {
+                      setSelectedDay(item.day);
+                      router.push('/schedule');
+                    }
                   }}
                   activeOpacity={item.currentMonth ? 0.6 : 1}
                 >
