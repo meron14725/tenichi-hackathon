@@ -15,6 +15,7 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 const C = {
   primary: '#436F9B',
   accent: '#6E8F8A',
+  holidayAccent: '#A86A78',
   bg: '#EEF0F1',
   white: '#FFFFFF',
   textPrimary: '#1F2528',
@@ -23,9 +24,19 @@ const C = {
   black: '#000000',
   border: '#EEF0F1',
   placeholder: '#98A6AE',
+  searchBg: '#EEF0F1',
+  stepConnector: '#C2A070',
 };
 
 type ScheduleType = '休日' | '旅行' | '仕事' | '出張';
+type Step = 'method' | 'form' | 'routine';
+
+type Routine = {
+  id: string;
+  title: string;
+  accentColor: string;
+  steps: string[];
+};
 
 const SCHEDULE_TYPES: { label: ScheduleType; icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' }[] =
   [
@@ -35,19 +46,43 @@ const SCHEDULE_TYPES: { label: ScheduleType; icon: string; iconSet: 'ionicons' |
     { label: '出張', icon: 'briefcase', iconSet: 'fa5' },
   ];
 
+const ROUTINES: Routine[] = [
+  {
+    id: '1',
+    title: '仕事ルーティン①',
+    accentColor: C.accent,
+    steps: ['荻窪発', '渋谷着', 'MTG'],
+  },
+  {
+    id: '2',
+    title: '仕事ルーティン②',
+    accentColor: C.accent,
+    steps: ['荻窪発', '渋谷着', 'MTG'],
+  },
+  { id: '3', title: '休日①', accentColor: C.holidayAccent, steps: ['荻窪発', '渋谷着', 'MTG'] },
+];
+
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [step, setStep] = useState<'method' | 'form'>('method');
+  const [step, setStep] = useState<Step>('method');
   const [title, setTitle] = useState('');
   const [memo, setMemo] = useState('');
   const [selectedType, setSelectedType] = useState<ScheduleType>('休日');
   const [belongings, setBelongings] = useState<string[]>(['財布', '充電器']);
   const [newBelonging, setNewBelonging] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
+  const [routineSearch, setRoutineSearch] = useState('');
 
   function handleSave() {
+    setShowModal(true);
+  }
+
+  function handleRoutineSelect(routine: Routine) {
+    setSelectedRoutine(routine);
+    setTitle(routine.title);
     setShowModal(true);
   }
 
@@ -62,6 +97,17 @@ export default function RegisterScreen() {
     }
   }
 
+  function handleBack() {
+    if (step === 'form' || step === 'routine') {
+      setStep('method');
+      setSelectedRoutine(null);
+    } else {
+      router.back();
+    }
+  }
+
+  const canSave = step === 'form' || (step === 'routine' && selectedRoutine);
+
   function renderTypeIcon(item: (typeof SCHEDULE_TYPES)[number], color: string) {
     const size = 20;
     if (item.iconSet === 'ionicons')
@@ -70,21 +116,20 @@ export default function RegisterScreen() {
     return <MaterialCommunityIcons name={item.icon as any} size={size} color={color} />;
   }
 
+  const filteredRoutines = routineSearch
+    ? ROUTINES.filter(r => r.title.includes(routineSearch))
+    : ROUTINES;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            if (step === 'form') setStep('method');
-            else router.back();
-          }}
-        >
+        <TouchableOpacity onPress={handleBack}>
           <Ionicons name="chevron-back" size={24} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>予定を登録</Text>
-        <TouchableOpacity onPress={step === 'form' ? handleSave : undefined}>
-          <Text style={[styles.saveText, step !== 'form' && { opacity: 0.3 }]}>保存</Text>
+        <TouchableOpacity onPress={canSave ? handleSave : undefined}>
+          <Text style={[styles.saveText, !canSave && { opacity: 0.3 }]}>保存</Text>
         </TouchableOpacity>
       </View>
 
@@ -107,17 +152,19 @@ export default function RegisterScreen() {
               <Ionicons name="calendar-outline" size={28} color={C.textPrimary} />
               <Text style={styles.methodText}>新しく登録</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.methodCard}>
+            <TouchableOpacity
+              style={[styles.methodCard, step === 'routine' && styles.methodCardSelected]}
+              onPress={() => setStep('routine')}
+            >
               <MaterialCommunityIcons name="arrow-u-left-top" size={28} color={C.textPrimary} />
               <Text style={styles.methodText}>ルーティンで登録</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Form (only visible after selecting method) */}
+        {/* New registration form */}
         {step === 'form' && (
           <>
-            {/* Title */}
             <View style={styles.formCard}>
               <Text style={styles.formLabel}>予定のタイトル</Text>
               <TextInput
@@ -129,7 +176,6 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* Memo */}
             <View style={styles.formCard}>
               <Text style={styles.formLabel}>一言メモ</Text>
               <TextInput
@@ -141,7 +187,6 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* Schedule type */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>予定の種類</Text>
               <View style={styles.typeRow}>
@@ -163,7 +208,6 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* Belongings */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>持ち物</Text>
               <View style={styles.belongingsCard}>
@@ -195,7 +239,6 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* Departure */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>出発地</Text>
               <TouchableOpacity style={styles.departureCard}>
@@ -203,6 +246,61 @@ export default function RegisterScreen() {
                 <Text style={styles.departureText}>自宅</Text>
                 <Ionicons name="chevron-forward" size={18} color={C.textMuted} />
               </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {/* Routine selection */}
+        {step === 'routine' && (
+          <>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={18} color={C.placeholder} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="ルーティンを検索"
+                placeholderTextColor={C.placeholder}
+                value={routineSearch}
+                onChangeText={setRoutineSearch}
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>ルーティンを選択</Text>
+              {filteredRoutines.map(routine => (
+                <TouchableOpacity
+                  key={routine.id}
+                  style={[
+                    styles.routineCard,
+                    selectedRoutine?.id === routine.id && styles.routineCardSelected,
+                  ]}
+                  onPress={() => handleRoutineSelect(routine)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.routineCardInner, { borderLeftColor: routine.accentColor }]}>
+                    <View style={styles.routineCardContent}>
+                      <Text style={styles.routineCardTitle}>{routine.title}</Text>
+                      <View style={styles.stepsRow}>
+                        {routine.steps.map((s, i) => (
+                          <View key={`${routine.id}-${i}`} style={styles.stepItem}>
+                            <View style={styles.stepDotRow}>
+                              <View
+                                style={[styles.stepDot, { backgroundColor: routine.accentColor }]}
+                              />
+                              {i < routine.steps.length - 1 && (
+                                <View
+                                  style={[styles.stepLine, { backgroundColor: C.stepConnector }]}
+                                />
+                              )}
+                            </View>
+                            <Text style={styles.stepText}>{s}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={21} color={C.textMuted} />
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           </>
         )}
@@ -282,12 +380,7 @@ const styles = StyleSheet.create({
   methodText: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
 
   // Form card
-  formCard: {
-    backgroundColor: C.white,
-    borderRadius: 7,
-    padding: 14,
-    gap: 8,
-  },
+  formCard: { backgroundColor: C.white, borderRadius: 7, padding: 14, gap: 8 },
   formLabel: { fontSize: 14, fontWeight: '500', color: C.textSecondary },
   formInput: { fontSize: 16, fontWeight: '500', color: C.textPrimary, paddingVertical: 4 },
 
@@ -325,11 +418,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: C.textPrimary,
   },
-  addBelongingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
+  addBelongingButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addBelongingButtonText: { fontSize: 12.25, fontWeight: '500', color: C.primary },
 
   // Departure
@@ -342,6 +431,45 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   departureText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
+
+  // Search bar
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.white,
+    borderRadius: 7,
+    paddingHorizontal: 12.25,
+    gap: 7,
+    height: 40,
+  },
+  searchInput: { flex: 1, fontSize: 14, fontWeight: '400', color: C.textPrimary },
+
+  // Routine cards
+  routineCard: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 7,
+    overflow: 'hidden',
+  },
+  routineCardSelected: { borderColor: C.primary, borderWidth: 2 },
+  routineCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderLeftWidth: 6,
+    borderRadius: 7,
+    paddingVertical: 12.25,
+    paddingHorizontal: 17.5,
+    gap: 8,
+  },
+  routineCardContent: { flex: 1, gap: 12.25 },
+  routineCardTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
+  stepsRow: { flexDirection: 'row', gap: 8 },
+  stepItem: { alignItems: 'center', gap: 7 },
+  stepDotRow: { flexDirection: 'row', alignItems: 'center' },
+  stepDot: { width: 12.25, height: 12.25, borderRadius: 6.125 },
+  stepLine: { width: 68, height: 2 },
+  stepText: { fontSize: 14, fontWeight: '500', color: C.textSecondary },
 
   // Modal
   modalOverlay: {
