@@ -79,8 +79,8 @@ export default function ScheduleIndexScreen() {
               <Text style={styles.weatherNote}>午後から雨</Text>
             </View>
             <View style={styles.trainCard}>
-              <MaterialCommunityIcons name="train" size={28} color={C.textPrimary} />
-              <Text style={styles.trainTime}>08:34発</Text>
+              <MaterialCommunityIcons name="chart-timeline-variant" size={28} color={C.textPrimary} />
+              <Text style={styles.trainTime}>スケジュール未定</Text>
             </View>
           </View>
 
@@ -90,7 +90,7 @@ export default function ScheduleIndexScreen() {
           {/* Routine card */}
           <View style={styles.routineCard}>
             <View style={styles.routineInner}>
-              <Ionicons name="briefcase-outline" size={20} color={C.accent} />
+              <MaterialCommunityIcons name="bike" size={20} color={C.accent} />
               <View style={styles.routineTextWrap}>
                 <Text style={styles.routineTitle}>友達と一日遊ぶ日</Text>
                 <Text style={styles.routineMemo}>お店の予約をする！</Text>
@@ -100,13 +100,13 @@ export default function ScheduleIndexScreen() {
 
           {/* CTA */}
           <View style={styles.ctaSection}>
-            <Text style={styles.ctaText}>スケジュールを登録しよう！</Text>
+            <Text style={styles.ctaText}>スケジュールを追加しよう！</Text>
             <TouchableOpacity
               style={styles.registerButton}
               onPress={() => router.push('/schedule/create')}
             >
-              <Ionicons name="add" size={18} color={C.white} />
-              <Text style={styles.registerButtonText}>登録</Text>
+              <Ionicons name="add" size={20} color={C.white} />
+              <Text style={styles.registerButtonText}>スケジュール追加</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
   },
-  trainTime: { fontSize: 15.75, fontWeight: '500', color: C.textPrimary },
+  trainTime: { fontSize: 12.25, fontWeight: '500', color: C.textPrimary },
 
   // Schedule
   scheduleTitle: { fontSize: 17.5, fontWeight: '700', color: C.black },
@@ -238,11 +238,12 @@ const styles = StyleSheet.create({
   registerButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     backgroundColor: C.primary,
-    borderRadius: 7,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    borderRadius: 10000,
+    paddingHorizontal: 40,
+    paddingVertical: 14,
   },
   registerButtonText: { fontSize: 14, fontWeight: '700', color: C.white },
 });
