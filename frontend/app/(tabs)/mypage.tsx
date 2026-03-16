@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
   ScrollView,
   StyleSheet,
@@ -63,26 +62,20 @@ export default function MyPageScreen() {
   }, []);
 
   async function handleLogout() {
-    Alert.alert('ログアウト', 'ログアウトしますか？', [
-      { text: 'キャンセル', style: 'cancel' },
-      {
-        text: 'ログアウト',
-        style: 'destructive',
-        onPress: async () => {
-          setLoggingOut(true);
-          try {
-            await fetch(`${BASE_URL}/auth/logout`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-            });
-          } catch {
-            // ログアウトAPI失敗してもローカルトークンはクリアする
-          }
-          clearToken();
-          router.replace('/auth/login');
-        },
-      },
-    ]);
+    const confirmed = window?.confirm?.('ログアウトしますか？') ?? true;
+    if (!confirmed) return;
+
+    setLoggingOut(true);
+    try {
+      await fetch(`${BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch {
+      // ログアウトAPI失敗してもローカルトークンはクリアする
+    }
+    clearToken();
+    router.replace('/auth/login');
   }
 
   function renderInfoRow(icon: React.ReactNode, label: string, value: string) {
