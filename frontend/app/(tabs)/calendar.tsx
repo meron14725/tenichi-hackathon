@@ -102,7 +102,11 @@ export default function CalendarScreen() {
                   onPress={() => {
                     if (item.currentMonth) {
                       setSelectedDay(item.day);
-                      router.push('/schedule');
+                      if (EVENTS[item.day]) {
+                        router.push('/schedule');
+                      } else {
+                        router.push('/schedule/register');
+                      }
                     }
                   }}
                   activeOpacity={item.currentMonth ? 0.6 : 1}

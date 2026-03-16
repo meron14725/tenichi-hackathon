@@ -103,7 +103,7 @@ export default function ScheduleIndexScreen() {
             <Text style={styles.ctaText}>スケジュールを登録しよう！</Text>
             <TouchableOpacity
               style={styles.registerButton}
-              onPress={() => router.push('/schedule/register')}
+              onPress={() => router.push('/schedule/create')}
             >
               <Ionicons name="add" size={18} color={C.white} />
               <Text style={styles.registerButtonText}>登録</Text>

@@ -612,7 +612,7 @@ export default function RegisterScreen() {
                 style={styles.modalButtonPrimary}
                 onPress={() => {
                   setShowModal(false);
-                  // TODO: navigate to schedule creation
+                  router.push('/schedule/create');
                 }}
               >
                 <Text style={styles.modalButtonPrimaryText}>スケジュール作成</Text>
