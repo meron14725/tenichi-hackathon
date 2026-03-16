@@ -10,6 +10,10 @@ export function setToken(token: string) {
   cachedToken = token;
 }
 
+export function clearToken() {
+  cachedToken = null;
+}
+
 async function getToken(): Promise<string> {
   if (cachedToken) return cachedToken;
 
