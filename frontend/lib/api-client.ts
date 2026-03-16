@@ -1,10 +1,14 @@
-const BASE_URL = 'https://fastapi-backend-825512055944.asia-northeast1.run.app/api/v1';
+export const BASE_URL = 'https://fastapi-backend-825512055944.asia-northeast1.run.app/api/v1';
 
 // TODO: ログイン機能実装後はlocalStorageから取得する
 // 現在はテスト用トークンを使用
 // 注意: Cloud RunのCORSが本番では無効のため、ブラウザからのloginリクエストは通らない
 // そのためJSON APIでログインしてトークンをキャッシュする方式を取る
 let cachedToken: string | null = null;
+
+export function setToken(token: string) {
+  cachedToken = token;
+}
 
 async function getToken(): Promise<string> {
   if (cachedToken) return cachedToken;

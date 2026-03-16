@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   APIProvider,
@@ -277,18 +277,31 @@ function MapContent({
 export default function DestinationPickerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
 
   const handleConfirm = () => {
     if (!selected) return;
-    router.navigate({
-      pathname: '/schedule/create',
-      params: {
-        destination_lat: String(selected.lat),
-        destination_lon: String(selected.lng),
-        destination_name: selected.name,
-      },
-    });
+
+    if (returnTo === 'auth/register') {
+      router.navigate({
+        pathname: '/auth/register',
+        params: {
+          home_lat: String(selected.lat),
+          home_lon: String(selected.lng),
+          home_address: selected.name,
+        },
+      });
+    } else {
+      router.navigate({
+        pathname: '/schedule/create',
+        params: {
+          destination_lat: String(selected.lat),
+          destination_lon: String(selected.lng),
+          destination_name: selected.name,
+        },
+      });
+    }
   };
 
   if (!GOOGLE_MAPS_API_KEY) {
