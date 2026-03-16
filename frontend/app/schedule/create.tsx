@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   Pressable,
@@ -10,8 +10,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import RouteResults from '../../components/route-results';
 
 const C = {
   primary: '#436F9B',
@@ -229,9 +230,20 @@ const timePickerStyles = StyleSheet.create({
   },
 });
 
+interface Destination {
+  lat: number;
+  lon: number;
+  name: string;
+}
+
 export default function ScheduleCreateScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    destination_lat?: string;
+    destination_lon?: string;
+    destination_name?: string;
+  }>();
 
   const [title, setTitle] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ScheduleCategory | null>(null);
@@ -239,6 +251,18 @@ export default function ScheduleCreateScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [useLastTrain, setUseLastTrain] = useState(false);
   const [memo, setMemo] = useState('');
+  const [destination, setDestination] = useState<Destination | null>(null);
+
+  // Receive destination from picker screen
+  useEffect(() => {
+    if (params.destination_lat && params.destination_lon && params.destination_name) {
+      setDestination({
+        lat: parseFloat(params.destination_lat),
+        lon: parseFloat(params.destination_lon),
+        name: params.destination_name,
+      });
+    }
+  }, [params.destination_lat, params.destination_lon, params.destination_name]);
 
   const canAdd = title.trim().length > 0;
 
@@ -313,10 +337,23 @@ export default function ScheduleCreateScreen() {
         {/* 目的地 */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>目的地</Text>
-          <TouchableOpacity style={styles.formButton} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.formButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/schedule/destination-picker')}
+          >
             <View style={styles.formButtonLeft}>
-              <Ionicons name="location-outline" size={24.5} color={C.placeholder} />
-              <Text style={styles.formButtonPlaceholder}>目的地を探す</Text>
+              <Ionicons
+                name={destination ? 'location' : 'location-outline'}
+                size={24.5}
+                color={destination ? C.primary : C.placeholder}
+              />
+              <Text
+                style={destination ? styles.formButtonValue : styles.formButtonPlaceholder}
+                numberOfLines={1}
+              >
+                {destination ? destination.name : '目的地を探す'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
           </TouchableOpacity>
@@ -385,6 +422,25 @@ export default function ScheduleCreateScreen() {
             />
           </View>
         </View>
+
+        {/* ルート検索結果 — 目的地と到着時間の両方が設定された時のみ表示 */}
+        {destination && arrivalTime && (
+          <RouteResults
+            destinationLat={destination.lat}
+            destinationLon={destination.lon}
+            arrivalTime={(() => {
+              const now = new Date();
+              const d = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                arrivalTime.hour,
+                arrivalTime.minute
+              );
+              return d.toISOString();
+            })()}
+          />
+        )}
       </ScrollView>
 
       {/* Time Picker Modal */}
@@ -478,6 +534,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: C.placeholder,
+  },
+  formButtonValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: C.textPrimary,
+    flex: 1,
   },
 
   // Arrival time
