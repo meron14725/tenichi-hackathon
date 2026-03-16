@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -61,6 +63,249 @@ const ROUTINES: Routine[] = [
   },
   { id: '3', title: '休日①', accentColor: C.holidayAccent, steps: ['荻窪発', '渋谷着', 'MTG'] },
 ];
+
+function RoutinePickerModal({
+  visible,
+  routines,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  routines: Routine[];
+  selectedId: string;
+  onSelect: (r: Routine) => void;
+  onClose: () => void;
+}) {
+  const slideAnim = useRef(new Animated.Value(600)).current;
+
+  useEffect(() => {
+    if (visible) {
+      slideAnim.setValue(600);
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 10,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  function handleClose() {
+    Animated.timing(slideAnim, {
+      toValue: 600,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => onClose());
+  }
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible transparent statusBarTranslucent>
+      <Pressable style={pickerStyles.backdrop} onPress={handleClose}>
+        <Pressable onPress={e => e.stopPropagation()} style={pickerStyles.cardWrap}>
+          <Animated.View style={[pickerStyles.card, { transform: [{ translateY: slideAnim }] }]}>
+            {/* Header */}
+            <View style={pickerStyles.header}>
+              <View style={pickerStyles.headerAccent} />
+              <Text style={pickerStyles.title}>ルーティンを選択</Text>
+              <Text style={pickerStyles.subtitle}>予定に適用するルーティンを選んでください</Text>
+            </View>
+
+            {/* Routine list */}
+            <View style={pickerStyles.list}>
+              {routines.map(routine => {
+                const isSelected = selectedId === routine.id;
+                return (
+                  <TouchableOpacity
+                    key={routine.id}
+                    style={[pickerStyles.routineItem, isSelected && pickerStyles.routineItemActive]}
+                    onPress={() => {
+                      onSelect(routine);
+                      handleClose();
+                    }}
+                    activeOpacity={0.65}
+                  >
+                    <View
+                      style={[
+                        pickerStyles.routineAccentBar,
+                        { backgroundColor: routine.accentColor },
+                      ]}
+                    />
+                    <View style={pickerStyles.routineBody}>
+                      <View style={pickerStyles.routineTitleRow}>
+                        <Text
+                          style={[pickerStyles.routineTitle, isSelected && { color: C.primary }]}
+                        >
+                          {routine.title}
+                        </Text>
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={20} color={C.primary} />
+                        )}
+                      </View>
+                      <View style={pickerStyles.stepsRow}>
+                        {routine.steps.map((s, i) => (
+                          <React.Fragment key={`${routine.id}-step-${i}`}>
+                            <View
+                              style={[
+                                pickerStyles.stepChip,
+                                {
+                                  backgroundColor: isSelected
+                                    ? `${routine.accentColor}18`
+                                    : '#F5F6F7',
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  pickerStyles.stepChipText,
+                                  isSelected && { color: routine.accentColor },
+                                ]}
+                              >
+                                {s}
+                              </Text>
+                            </View>
+                            {i < routine.steps.length - 1 && (
+                              <Ionicons
+                                name="arrow-forward"
+                                size={11}
+                                color={C.textMuted}
+                                style={{ marginHorizontal: 2 }}
+                              />
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Close */}
+            <TouchableOpacity style={pickerStyles.closeButton} onPress={handleClose}>
+              <Text style={pickerStyles.closeText}>キャンセル</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const pickerStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 30, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  cardWrap: {
+    width: '100%',
+  },
+  card: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    width: '100%',
+    overflow: 'hidden',
+    shadowColor: '#0F171E',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+    maxHeight: '85%',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 16,
+  },
+  headerAccent: {
+    width: 32,
+    height: 3,
+    backgroundColor: C.primary,
+    borderRadius: 2,
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.textPrimary,
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: C.textSecondary,
+    marginTop: 4,
+  },
+  list: {
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  routineItem: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    borderRadius: 10,
+    backgroundColor: '#F8F9FA',
+    overflow: 'hidden',
+  },
+  routineItemActive: {
+    backgroundColor: '#EDF2F8',
+    borderWidth: 1.5,
+    borderColor: `${C.primary}40`,
+  },
+  routineAccentBar: {
+    width: 4,
+    borderRadius: 2,
+    marginVertical: 8,
+    marginLeft: 4,
+  },
+  routineBody: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  routineTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  routineTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.textPrimary,
+  },
+  stepsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  stepChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  stepChipText: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: C.textSecondary,
+  },
+  closeButton: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E8EAEC',
+  },
+  closeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: C.textSecondary,
+  },
+});
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
@@ -328,56 +573,15 @@ export default function RegisterScreen() {
       </ScrollView>
 
       {/* Routine Picker Modal */}
-      <Modal visible={showRoutinePicker} transparent animationType="slide">
-        <View style={styles.pickerOverlay}>
-          <View style={styles.pickerContent}>
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>ルーティンを選択</Text>
-              <TouchableOpacity onPress={() => setShowRoutinePicker(false)}>
-                <Ionicons name="close" size={24} color={C.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.pickerScroll}>
-              {ROUTINES.map(routine => (
-                <TouchableOpacity
-                  key={routine.id}
-                  style={[
-                    styles.pickerRoutineCard,
-                    selectedRoutine.id === routine.id && styles.pickerRoutineCardSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedRoutine(routine);
-                    setShowRoutinePicker(false);
-                  }}
-                >
-                  <View
-                    style={[styles.pickerRoutineInner, { borderLeftColor: routine.accentColor }]}
-                  >
-                    <Text style={styles.pickerRoutineTitle}>{routine.title}</Text>
-                    <View style={styles.stepsRow}>
-                      {routine.steps.map((s, i) => (
-                        <View key={`pick-${routine.id}-${i}`} style={styles.stepItem}>
-                          <View style={styles.stepDotRow}>
-                            <View
-                              style={[styles.stepDot, { backgroundColor: routine.accentColor }]}
-                            />
-                            {i < routine.steps.length - 1 && (
-                              <View
-                                style={[styles.stepLine, { backgroundColor: C.stepConnector }]}
-                              />
-                            )}
-                          </View>
-                          <Text style={styles.stepText}>{s}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <RoutinePickerModal
+        visible={showRoutinePicker}
+        routines={ROUTINES}
+        selectedId={selectedRoutine.id}
+        onSelect={routine => {
+          setSelectedRoutine(routine);
+        }}
+        onClose={() => setShowRoutinePicker(false)}
+      />
 
       {/* Success Modal */}
       <Modal visible={showModal} transparent animationType="fade">
@@ -522,49 +726,7 @@ const styles = StyleSheet.create({
   selectedRoutineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
   addBelongingRowEnd: { alignItems: 'flex-end' },
 
-  // Routine picker modal
-  pickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  pickerContent: {
-    backgroundColor: C.white,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    maxHeight: '70%',
-    padding: 20,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  pickerTitle: { fontSize: 17.5, fontWeight: '700', color: C.textPrimary },
-  pickerScroll: { gap: 12 },
-  pickerRoutineCard: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 7,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  pickerRoutineCardSelected: { borderColor: C.primary, borderWidth: 2 },
-  pickerRoutineInner: {
-    borderLeftWidth: 6,
-    borderRadius: 7,
-    paddingVertical: 12.25,
-    paddingHorizontal: 17.5,
-    gap: 12.25,
-  },
-  pickerRoutineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-  stepsRow: { flexDirection: 'row', gap: 8 },
-  stepItem: { alignItems: 'center', gap: 7 },
-  stepDotRow: { flexDirection: 'row', alignItems: 'center' },
-  stepDot: { width: 12.25, height: 12.25, borderRadius: 6.125 },
-  stepLine: { width: 68, height: 2 },
-  stepText: { fontSize: 14, fontWeight: '500', color: C.textSecondary },
+  // (routine picker styles are in pickerStyles above)
 
   // Modal
   modalOverlay: {
