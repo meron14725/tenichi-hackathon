@@ -24,14 +24,22 @@ from app.exceptions import (
 
 app = FastAPI(title="Tenichi API")
 
-if settings.ENVIRONMENT == "development":
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+_ALLOWED_ORIGINS = (
+    ["*"]
+    if settings.ENVIRONMENT == "development"
+    else [
+        "http://localhost:8081",
+        "https://schedule-t-y-k-app.web.app",
+    ]
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
