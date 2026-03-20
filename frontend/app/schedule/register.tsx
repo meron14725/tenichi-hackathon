@@ -92,7 +92,7 @@ function RoutinePickerModal({
         useNativeDriver: true,
       }).start();
     }
-  }, [visible]);
+  }, [visible, slideAnim]);
 
   function handleClose() {
     Animated.timing(slideAnim, {
