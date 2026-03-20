@@ -177,7 +177,12 @@ export default function HomeScreen() {
           {item.lineName && (
             <View style={styles.stationRow}>
               <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
-              <View style={[styles.lineNameBadge, { backgroundColor: item.past ? C.textMuted : item.lineColor }]}>
+              <View
+                style={[
+                  styles.lineNameBadge,
+                  { backgroundColor: item.past ? C.textMuted : item.lineColor },
+                ]}
+              >
                 <Text style={styles.lineNameText}>{item.lineName}</Text>
               </View>
             </View>
