@@ -202,8 +202,7 @@ function ItineraryCard({ itinerary }: { itinerary: ItineraryResponse }) {
 
         {itinerary.legs.map((leg, legIndex) => {
           // 最後のWALK legは目的地バッジ側で表示するのでスキップ
-          const isLastWalkLeg =
-            legIndex === itinerary.legs.length - 1 && leg.mode === 'WALK';
+          const isLastWalkLeg = legIndex === itinerary.legs.length - 1 && leg.mode === 'WALK';
           return (
             <React.Fragment key={legIndex}>
               {/* Connector (最後のWALK legは除く) */}
