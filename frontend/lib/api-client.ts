@@ -35,14 +35,30 @@ async function getToken(): Promise<string> {
   return cachedToken!;
 }
 
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
   const token = await getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...init.headers, Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 401) {
+    // トークン期限切れ → 再取得してリトライ
+    cachedToken = null;
+    const newToken = await getToken();
+    return fetch(url, {
+      ...init,
+      headers: { ...init.headers, Authorization: `Bearer ${newToken}` },
+    });
+  }
+
+  return res;
+}
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetchWithAuth(`${BASE_URL}${path}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 
@@ -55,11 +71,9 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const token = await getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const res = await fetchWithAuth(`${BASE_URL}${path}`, {
+    method: 'GET',
+    headers: {},
   });
 
   if (!res.ok) {
