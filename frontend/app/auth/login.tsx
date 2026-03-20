@@ -13,7 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { BASE_URL, setToken } from '@/lib/api-client';
+import { authApi } from '@/api/authApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 const C = {
   primary: '#436F9B',
@@ -36,6 +37,8 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const { login } = useAuth();
+
   async function handleLogin() {
     setError('');
 
@@ -52,27 +55,12 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await authApi.login({ email, password });
 
-      if (!res.ok) {
-        if (res.status === 401) {
-          setError('メールアドレスまたはパスワードが違います。');
-        } else {
-          setError('予期せぬエラーが発生しました。しばらく待って再度試してください。');
-        }
-        return;
-      }
-
-      const { access_token } = await res.json();
-      setToken(access_token);
-
-      router.replace('/(tabs)');
-    } catch {
-      setError('予期せぬエラーが発生しました。しばらく待って再度試してください。');
+      // authApiからのレスポンスをそのままuseAuthのloginへ渡す
+      await login(response);
+    } catch (err: any) {
+      setError(err.message || 'メールアドレスまたはパスワードが違います。');
     } finally {
       setLoading(false);
     }
