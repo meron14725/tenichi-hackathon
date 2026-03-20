@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
-
-const owlAvatar = require('@/assets/images/owl-avatar.png');
+import OwlChatBubble from '@/components/owl-chat-bubble';
+import TodoCard from '@/components/todo-card';
 
 // Colors
 const C = {
   headerBg: '#436F9B',
-  todoBg: '#E6EDF6',
-  todoBorder: '#A8C0DD',
   routineBorder: '#6E8F8A',
   weatherBg: '#EDF0F2',
   trainBg: '#EEF0F1',
@@ -86,84 +84,17 @@ const TIMELINE = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [todos, setTodos] = useState([
-    { id: 1, label: '折りたたみ傘', checked: true },
-    { id: 2, label: 'スーツ', checked: false },
-  ]);
-
-  const toggleTodo = (id: number) => {
-    setTodos(prev => prev.map(t => (t.id === id ? { ...t, checked: !t.checked } : t)));
-  };
-
-  const remainingCount = todos.filter(t => !t.checked).length;
 
   function renderHeader() {
     return (
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTopRow}>
-          {/* Left spacer */}
-          <View style={{ width: 35 }} />
-          {/* Menu button */}
+          <View style={styles.menuSpacer} />
           <TouchableOpacity style={styles.menuButton}>
             <Feather name="more-horizontal" size={20} color={C.white} />
           </TouchableOpacity>
         </View>
-        <View style={styles.chatRow}>
-          {/* Owl Avatar */}
-          <Image source={owlAvatar} style={styles.owlAvatar} resizeMode="contain" />
-          {/* Chat bubble */}
-          <View style={styles.chatBubbleWrapper}>
-            <View style={styles.chatBubble}>
-              <Text style={styles.chatText}>
-                {'明日の準備をしよう！\nテキストテキスト\nテキスト'}
-              </Text>
-            </View>
-            <View style={styles.chatTriangle} />
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  function renderTodoCard() {
-    return (
-      <View style={styles.todoCardWrapper}>
-        <View style={styles.todoCard}>
-          {/* Todo header */}
-          <View style={styles.todoHeader}>
-            <MaterialCommunityIcons
-              name="clipboard-text-outline"
-              size={24.5}
-              color={C.textPrimary}
-            />
-            <Text style={styles.todoHeaderText}>前日までに準備すること！</Text>
-          </View>
-          {/* Todo body */}
-          <View style={styles.todoBody}>
-            {todos.map((todo, index) => (
-              <React.Fragment key={todo.id}>
-                {index > 0 && <View style={styles.dashedDivider} />}
-                <TouchableOpacity style={styles.todoRow} onPress={() => toggleTodo(todo.id)}>
-                  {todo.checked ? (
-                    <View style={styles.checkedBox}>
-                      <Ionicons name="checkmark" size={13} color={C.white} />
-                    </View>
-                  ) : (
-                    <View style={styles.uncheckedBox} />
-                  )}
-                  <Text style={todo.checked ? styles.todoCheckedText : styles.todoText}>
-                    {todo.label}
-                  </Text>
-                </TouchableOpacity>
-              </React.Fragment>
-            ))}
-          </View>
-        </View>
-        {remainingCount > 0 && (
-          <View style={styles.remainingBadge}>
-            <Text style={styles.remainingBadgeText}>残り{remainingCount}個！</Text>
-          </View>
-        )}
+        <OwlChatBubble message={'明日の準備をしよう！\nテキストテキスト\nテキスト'} />
       </View>
     );
   }
@@ -305,7 +236,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mainContent}>
-          {renderTodoCard()}
+          <TodoCard />
           {renderWeatherTrainRow()}
           {renderScheduleHeader()}
           {renderRoutineCard()}
@@ -338,6 +269,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  menuSpacer: {
+    width: 35,
+  },
   menuButton: {
     width: 35,
     height: 35,
@@ -345,46 +279,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(26,26,26,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  chatRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  owlAvatar: {
-    width: 165,
-    height: 165,
-  },
-  chatBubbleWrapper: {
-    flex: 1,
-    marginLeft: -4,
-    marginBottom: 20,
-  },
-  chatBubble: {
-    backgroundColor: C.white,
-    borderRadius: 10.5,
-    borderWidth: 1,
-    borderColor: C.white,
-    paddingHorizontal: 12.25,
-    paddingVertical: 7,
-  },
-  chatTriangle: {
-    position: 'absolute',
-    left: -8,
-    bottom: 20,
-    width: 0,
-    height: 0,
-    borderTopWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomWidth: 6,
-    borderBottomColor: 'transparent',
-    borderRightWidth: 11,
-    borderRightColor: C.white,
-  },
-  chatText: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 21,
-    color: C.textPrimary,
   },
 
   // Scroll
@@ -395,7 +289,6 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // Main content (white area overlapping owl's lower body)
   mainContent: {
     backgroundColor: C.white,
     paddingHorizontal: 14,
@@ -404,89 +297,6 @@ const styles = StyleSheet.create({
     gap: 17.5,
     minHeight: 800,
     marginTop: -30,
-  },
-
-  // Todo card
-  todoCardWrapper: {
-    position: 'relative',
-  },
-  todoCard: {
-    borderWidth: 2,
-    borderColor: C.todoBorder,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  todoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.todoBg,
-    borderBottomWidth: 2,
-    borderBottomColor: C.todoBorder,
-    paddingHorizontal: 17.5,
-    paddingVertical: 12.25,
-  },
-  todoHeaderText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: C.textPrimary,
-  },
-  todoBody: {
-    paddingHorizontal: 17.5,
-    paddingVertical: 17.5,
-    gap: 17.5,
-  },
-  todoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  todoCheckedText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: C.textPrimary,
-    textDecorationLine: 'line-through',
-    textDecorationColor: C.textMuted,
-  },
-  todoText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: C.textPrimary,
-  },
-  checkedBox: {
-    width: 17.5,
-    height: 17.5,
-    borderRadius: 3.5,
-    backgroundColor: C.headerBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uncheckedBox: {
-    width: 17.5,
-    height: 17.5,
-    borderRadius: 3.5,
-    borderWidth: 1,
-    borderColor: C.textMuted,
-  },
-  remainingBadge: {
-    position: 'absolute',
-    right: 0,
-    bottom: -12,
-    backgroundColor: '#A86A78',
-    borderRadius: 7,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  remainingBadgeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: C.white,
-  },
-  dashedDivider: {
-    height: 0,
-    borderBottomWidth: 1.5,
-    borderBottomColor: C.todoBorder,
-    borderStyle: 'dashed',
   },
 
   // Weather + Train
