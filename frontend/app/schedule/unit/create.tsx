@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import RouteResults from '../../components/route-results';
+import RouteResults from '@/components/route-results';
 
 const C = {
   primary: '#436F9B',
@@ -51,8 +51,8 @@ function TimePickerModal({
   onSelect: (hour: number, minute: number) => void;
   onClose: () => void;
 }) {
-  const [hour, setHour] = useState(8);
-  const [minute, setMinute] = useState(0);
+  const [hour, setHour] = useState<number>(8);
+  const [minute, setMinute] = useState<number>(0);
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -340,7 +340,7 @@ export default function ScheduleCreateScreen() {
           <TouchableOpacity
             style={styles.formButton}
             activeOpacity={0.7}
-            onPress={() => router.push('/schedule/destination-picker')}
+            onPress={() => router.push('/schedule/unit/destination-picker')}
           >
             <View style={styles.formButtonLeft}>
               <Ionicons

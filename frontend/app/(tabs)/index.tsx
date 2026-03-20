@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import OwlChatBubble from '@/components/owl-chat-bubble';
 import TodoCard from '@/components/todo-card';
@@ -83,6 +84,7 @@ const TIMELINE = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   function renderHeader() {
     return (
@@ -260,7 +262,10 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity style={[styles.fab, { bottom: 100 + insets.bottom }]}>
+      <TouchableOpacity
+        style={[styles.fab, { bottom: 100 + insets.bottom }]}
+        onPress={() => router.push('/schedule/list/register')}
+      >
         <Ionicons name="add" size={28} color={C.white} />
       </TouchableOpacity>
     </View>

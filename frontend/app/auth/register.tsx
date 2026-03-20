@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,13 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { authApi } from '@/api/authApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/utils/apiClient';
-import {
-  APIProvider,
-  Map,
-  AdvancedMarker,
-  useMap,
-  useMapsLibrary,
-} from '@vis.gl/react-google-maps';
+import MapAddressPicker from '@/components/map-address-picker';
 
 const C = {
   primary: '#436F9B',
@@ -34,11 +28,6 @@ const C = {
   placeholder: '#98A6AE',
   error: '#D94040',
 };
-
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
-// 東京をデフォルト中心にする
-const DEFAULT_CENTER = { lat: 35.6762, lng: 139.6503 };
 
 type FieldErrors = {
   email?: string;
@@ -88,172 +77,6 @@ function validate(fields: {
 
   return errors;
 }
-
-// ==================================================================
-// Geocoder を APIProvider 配下で1つだけ初期化し共有するためのコンテキスト
-// ==================================================================
-const GeocoderContext = React.createContext<google.maps.Geocoder | null>(null);
-
-function GeocoderProvider({ children }: { children: React.ReactNode }) {
-  const geocodingLib = useMapsLibrary('geocoding');
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
-
-  useEffect(() => {
-    if (geocodingLib && !geocoderRef.current) {
-      geocoderRef.current = new geocodingLib.Geocoder();
-      setGeocoder(geocoderRef.current);
-    }
-  }, [geocodingLib]);
-
-  return <GeocoderContext.Provider value={geocoder}>{children}</GeocoderContext.Provider>;
-}
-
-function useSharedGeocoder() {
-  return React.useContext(GeocoderContext);
-}
-
-// ==================================================================
-// マップ上のピン操作とジオコーディングを管理するコンポーネント
-// ==================================================================
-function MapContent({
-  pinPosition,
-  onPinChange,
-}: {
-  pinPosition: { lat: number; lng: number } | null;
-  onPinChange: (lat: number, lng: number, address: string) => void;
-}) {
-  const map = useMap();
-  const geocoder = useSharedGeocoder();
-
-  // ピン位置が変わったらマップを移動
-  useEffect(() => {
-    if (map && pinPosition) {
-      map.panTo(pinPosition);
-      map.setZoom(16);
-    }
-  }, [map, pinPosition]);
-
-  // マップをクリック → その場所にピンを移動 + 逆ジオコーディングで住所取得
-  const handleMapClick = useCallback(
-    (e: any) => {
-      const latLng = e.detail?.latLng;
-      if (!latLng) return;
-
-      const lat = latLng.lat;
-      const lng = latLng.lng;
-
-      if (geocoder) {
-        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-          const name =
-            status === 'OK' && results?.[0]
-              ? results[0].formatted_address
-              : `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          onPinChange(lat, lng, name);
-        });
-      } else {
-        onPinChange(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-      }
-    },
-    [geocoder, onPinChange]
-  );
-
-  return (
-    <>
-      <Map
-        defaultCenter={DEFAULT_CENTER}
-        defaultZoom={12}
-        gestureHandling="greedy"
-        disableDefaultUI={true}
-        onClick={handleMapClick as any}
-        style={{ width: '100%', height: '100%' }}
-        mapId="register-address-map"
-      />
-      {pinPosition && <AdvancedMarker position={pinPosition} />}
-    </>
-  );
-}
-
-// ==================================================================
-// 住所検索 → ジオコーディングでマップ上のピンを移動
-// ==================================================================
-function AddressGeocoder({
-  onGeocode,
-}: {
-  onGeocode: (lat: number, lng: number, address: string) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const geocoder = useSharedGeocoder();
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleChangeText = useCallback(
-    (text: string) => {
-      setQuery(text);
-
-      // 前のタイマーをクリア
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-
-      if (!text.trim() || !geocoder) return;
-
-      // 入力後 800ms 後にジオコーディング実行
-      debounceTimer.current = setTimeout(() => {
-        geocoder?.geocode({ address: text, region: 'jp' }, (results, status) => {
-          if (status === 'OK' && results?.[0]?.geometry?.location) {
-            const loc = results[0].geometry.location;
-            onGeocode(loc.lat(), loc.lng(), results[0].formatted_address);
-          }
-        });
-      }, 800);
-    },
-    [geocoder, onGeocode]
-  );
-
-  return (
-    <View style={geocoderStyles.container}>
-      <Ionicons name="search" size={18} color={C.placeholder} />
-      <TextInput
-        style={geocoderStyles.input}
-        placeholder="住所を入力してマップを移動"
-        placeholderTextColor={C.placeholder}
-        value={query}
-        onChangeText={handleChangeText}
-      />
-      {query.length > 0 && (
-        <TouchableOpacity onPress={() => setQuery('')}>
-          <Ionicons name="close-circle" size={16} color={C.textMuted} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
-
-const geocoderStyles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 8,
-    left: 10,
-    right: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.white,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    height: 40,
-    gap: 8,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-      },
-    }),
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: C.textPrimary,
-  },
-});
 
 // ==================================================================
 // メインの登録画面コンポーネント
@@ -389,21 +212,6 @@ export default function RegisterScreen() {
   }
 
   function renderMapSection() {
-    if (!GOOGLE_MAPS_API_KEY) {
-      return (
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>自宅住所</Text>
-          <View style={styles.noMapContainer}>
-            <Ionicons name="map-outline" size={28} color={C.textMuted} />
-            <Text style={styles.noMapText}>
-              Google Maps APIキーが未設定です。{'\n'}
-              EXPO_PUBLIC_GOOGLE_MAPS_API_KEY を設定してください。
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
     return (
       <View style={styles.inputGroup}>
         <Text style={styles.label}>自宅住所</Text>
@@ -413,12 +221,7 @@ export default function RegisterScreen() {
 
         {/* マップ表示エリア */}
         <View style={styles.mapWrapper}>
-          <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-            <GeocoderProvider>
-              <MapContent pinPosition={pinPosition} onPinChange={handlePinChange} />
-              <AddressGeocoder onGeocode={handlePinChange} />
-            </GeocoderProvider>
-          </APIProvider>
+          <MapAddressPicker pinPosition={pinPosition} onPinChange={handlePinChange} />
         </View>
 
         {/* 選択された住所の表示 */}
@@ -665,22 +468,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: C.textPrimary,
-    lineHeight: 18,
-  },
-  noMapContainer: {
-    height: 120,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    padding: 16,
-  },
-  noMapText: {
-    fontSize: 12,
-    color: C.textSecondary,
-    textAlign: 'center',
     lineHeight: 18,
   },
 

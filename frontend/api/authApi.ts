@@ -11,6 +11,11 @@ export interface TokenResponse {
   expires_in: number;
 }
 
+export interface RefreshTokenResponse {
+  access_token: string;
+  expires_in: number;
+}
+
 export interface RegisterRequest {
   email: string;
   password: string;

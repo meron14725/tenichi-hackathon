@@ -103,9 +103,9 @@ export default function CalendarScreen() {
                     if (item.currentMonth) {
                       setSelectedDay(item.day);
                       if (EVENTS[item.day]) {
-                        router.push('/schedule');
+                        router.push('/schedule/list');
                       } else {
-                        router.push('/schedule/register');
+                        router.push('/schedule/list/register');
                       }
                     }
                   }}
@@ -133,7 +133,10 @@ export default function CalendarScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity style={[styles.fab, { bottom: 100 + insets.bottom }]}>
+      <TouchableOpacity
+        style={[styles.fab, { bottom: 100 + insets.bottom }]}
+        onPress={() => router.push('/schedule/list/select-method')}
+      >
         <Ionicons name="add" size={28} color={C.white} />
       </TouchableOpacity>
     </View>
