@@ -202,6 +202,12 @@ async def search_routes(
         raise AppError("OTP_UNAVAILABLE", "Route planning service is unavailable", 503) from None
 
     itineraries = _parse_itineraries(data)
+
+    # transit検索時、徒歩のみのitineraryを除外する
+    # OTP2はtransitモードでも代替として徒歩ルートを返すことがある
+    if travel_mode == "transit":
+        itineraries = [it for it in itineraries if any(leg["mode"] != "WALK" for leg in it["legs"])]
+
     if not itineraries:
         raise AppError("ROUTE_NOT_FOUND", "No routes found for the specified conditions", 404)
 
