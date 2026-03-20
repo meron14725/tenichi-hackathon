@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: C.headerBg,
     paddingHorizontal: 14,
-    paddingBottom: 24.5,
+    paddingBottom: 50,
     gap: 12.25,
   },
   headerTopRow: {
@@ -398,9 +398,9 @@ const styles = StyleSheet.create({
   // Main content
   mainContent: {
     backgroundColor: C.white,
-    borderTopLeftRadius: 10.5,
-    borderTopRightRadius: 10.5,
-    marginTop: -8,
+    borderTopLeftRadius: 21,
+    borderTopRightRadius: 21,
+    marginTop: -35,
     paddingHorizontal: 14,
     paddingTop: 17.5,
     paddingBottom: 17.5,

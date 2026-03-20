@@ -149,7 +149,7 @@ export default function ScheduleIndexScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.headerBg },
-  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, paddingBottom: 24.5, gap: 12 },
+  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, paddingBottom: 50, gap: 12 },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   backText: { fontSize: 14, fontWeight: '500', color: C.white },
   chatRow: { flexDirection: 'row', alignItems: 'flex-end' },
@@ -185,9 +185,9 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 100 },
   mainContent: {
     backgroundColor: C.white,
-    borderTopLeftRadius: 10.5,
-    borderTopRightRadius: 10.5,
-    marginTop: -8,
+    borderTopLeftRadius: 21,
+    borderTopRightRadius: 21,
+    marginTop: -35,
     paddingHorizontal: 14,
     paddingTop: 17.5,
     paddingBottom: 17.5,
