@@ -1,7 +1,9 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+
+const owlAvatar = require('@/assets/images/owl-avatar.png');
 
 // Colors
 const C = {
@@ -84,51 +86,84 @@ const TIMELINE = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const [todos, setTodos] = useState([
+    { id: 1, label: '折りたたみ傘', checked: true },
+    { id: 2, label: 'スーツ', checked: false },
+  ]);
+
+  const toggleTodo = (id: number) => {
+    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, checked: !t.checked } : t)));
+  };
+
+  const remainingCount = todos.filter((t) => !t.checked).length;
 
   function renderHeader() {
     return (
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerTopRow}>
+          {/* Left spacer */}
+          <View style={{ width: 35 }} />
+          {/* Menu button */}
+          <TouchableOpacity style={styles.menuButton}>
+            <Feather name="more-horizontal" size={20} color={C.white} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.chatRow}>
-          {/* Avatar */}
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={22} color={C.white} />
-          </View>
+          {/* Owl Avatar */}
+          <Image source={owlAvatar} style={styles.owlAvatar} resizeMode="contain" />
           {/* Chat bubble */}
-          <View style={styles.chatBubble}>
-            <Text style={styles.chatText}>明日の準備をしよう！</Text>
+          <View style={styles.chatBubbleWrapper}>
+            <View style={styles.chatBubble}>
+              <Text style={styles.chatText}>
+                {'明日の準備をしよう！\nテキストテキスト\nテキスト'}
+              </Text>
+            </View>
+            <View style={styles.chatTriangle} />
           </View>
         </View>
-        {/* Menu button */}
-        <TouchableOpacity style={styles.menuButton}>
-          <Feather name="more-horizontal" size={20} color={C.white} />
-        </TouchableOpacity>
       </View>
     );
   }
 
   function renderTodoCard() {
     return (
-      <View style={styles.todoCard}>
-        {/* Todo header */}
-        <View style={styles.todoHeader}>
-          <MaterialCommunityIcons name="clipboard-text-outline" size={24.5} color={C.textPrimary} />
-          <Text style={styles.todoHeaderText}>前日までに準備すること！</Text>
-        </View>
-        {/* Todo body */}
-        <View style={styles.todoBody}>
-          {/* Checked item */}
-          <View style={styles.todoRow}>
-            <Ionicons name="checkbox" size={22} color="#4CAF50" />
-            <Text style={styles.todoCheckedText}>折りたたみ傘</Text>
+      <View style={styles.todoCardWrapper}>
+        <View style={styles.todoCard}>
+          {/* Todo header */}
+          <View style={styles.todoHeader}>
+            <MaterialCommunityIcons
+              name="clipboard-text-outline"
+              size={24.5}
+              color={C.textPrimary}
+            />
+            <Text style={styles.todoHeaderText}>前日までに準備すること！</Text>
           </View>
-          {/* Dashed divider */}
-          <View style={styles.dashedDivider} />
-          {/* Unchecked item */}
-          <View style={styles.todoRow}>
-            <View style={styles.uncheckedBox} />
-            <Text style={styles.todoText}>スーツ</Text>
+          {/* Todo body */}
+          <View style={styles.todoBody}>
+            {todos.map((todo, index) => (
+              <React.Fragment key={todo.id}>
+                {index > 0 && <View style={styles.dashedDivider} />}
+                <TouchableOpacity style={styles.todoRow} onPress={() => toggleTodo(todo.id)}>
+                  {todo.checked ? (
+                    <View style={styles.checkedBox}>
+                      <Ionicons name="checkmark" size={13} color={C.white} />
+                    </View>
+                  ) : (
+                    <View style={styles.uncheckedBox} />
+                  )}
+                  <Text style={todo.checked ? styles.todoCheckedText : styles.todoText}>
+                    {todo.label}
+                  </Text>
+                </TouchableOpacity>
+              </React.Fragment>
+            ))}
           </View>
         </View>
+        {remainingCount > 0 && (
+          <View style={styles.remainingBadge}>
+            <Text style={styles.remainingBadgeText}>残り{remainingCount}個！</Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -296,45 +331,60 @@ const styles = StyleSheet.create({
     backgroundColor: C.headerBg,
     paddingHorizontal: 14,
     paddingBottom: 24.5,
+    gap: 12.25,
   },
-  chatRow: {
+  headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chatBubble: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderTopLeftRadius: 3.5,
-    borderTopRightRadius: 10.5,
-    borderBottomLeftRadius: 10.5,
-    borderBottomRightRadius: 10.5,
-    padding: 12,
-  },
-  chatText: {
-    fontSize: 14,
-    fontWeight: '400',
-    lineHeight: 21,
-    color: C.textPrimary,
   },
   menuButton: {
-    position: 'absolute',
-    right: 14,
-    bottom: 32,
     width: 35,
     height: 35,
     borderRadius: 17.5,
     backgroundColor: 'rgba(26,26,26,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  chatRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  owlAvatar: {
+    width: 165,
+    height: 165,
+  },
+  chatBubbleWrapper: {
+    flex: 1,
+    marginLeft: -4,
+    marginBottom: 20,
+  },
+  chatBubble: {
+    backgroundColor: C.white,
+    borderRadius: 10.5,
+    borderWidth: 1,
+    borderColor: C.white,
+    paddingHorizontal: 12.25,
+    paddingVertical: 7,
+  },
+  chatTriangle: {
+    position: 'absolute',
+    left: -8,
+    bottom: 20,
+    width: 0,
+    height: 0,
+    borderTopWidth: 6,
+    borderTopColor: 'transparent',
+    borderBottomWidth: 6,
+    borderBottomColor: 'transparent',
+    borderRightWidth: 11,
+    borderRightColor: C.white,
+  },
+  chatText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 21,
+    color: C.textPrimary,
   },
 
   // Scroll
@@ -359,6 +409,9 @@ const styles = StyleSheet.create({
   },
 
   // Todo card
+  todoCardWrapper: {
+    position: 'relative',
+  },
   todoCard: {
     borderWidth: 2,
     borderColor: C.todoBorder,
@@ -402,12 +455,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: C.textPrimary,
   },
+  checkedBox: {
+    width: 17.5,
+    height: 17.5,
+    borderRadius: 3.5,
+    backgroundColor: C.headerBg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
   uncheckedBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
+    width: 17.5,
+    height: 17.5,
+    borderRadius: 3.5,
     borderWidth: 1,
     borderColor: C.textMuted,
+  },
+  remainingBadge: {
+    position: 'absolute' as const,
+    right: 0,
+    bottom: -12,
+    backgroundColor: '#A86A78',
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  remainingBadgeText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: C.white,
   },
   dashedDivider: {
     height: 0,
