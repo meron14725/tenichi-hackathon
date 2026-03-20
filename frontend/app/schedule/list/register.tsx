@@ -401,10 +401,14 @@ export default function RegisterScreen() {
       if (step === 'form') {
         reqName = name || '無題の予定';
         reqMemo = memo || null;
-        reqPacking = belongings.map((n, index) => ({ name: n, sort_order: index }));
+        reqPacking = belongings
+          .filter(n => n.trim() !== '')
+          .map((n, index) => ({ name: n.trim(), sort_order: index }));
       } else if (step === 'routine') {
         reqName = selectedRoutine.title;
-        reqPacking = routineBelongings.map((n, index) => ({ name: n, sort_order: index }));
+        reqPacking = routineBelongings
+          .filter(n => n.trim() !== '')
+          .map((n, index) => ({ name: n.trim(), sort_order: index }));
       }
 
       const d = new Date();
@@ -686,60 +690,48 @@ export default function RegisterScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>持ち物</Text>
               <View style={styles.belongingsCard}>
-                {routineBelongings.length > 0 ? (
-                  routineBelongings.map((item, i) => (
-                    <View key={`rb-${i}`}>
-                      <View style={styles.belongingRow}>
-                        <View style={styles.reorderButtons}>
-                          <TouchableOpacity
-                            onPress={() => moveRoutineBelonging(i, 'up')}
-                            disabled={i === 0}
-                            style={{ opacity: i === 0 ? 0.25 : 1 }}
-                          >
-                            <Ionicons name="chevron-up" size={18} color={C.textMuted} />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => moveRoutineBelonging(i, 'down')}
-                            disabled={i === routineBelongings.length - 1}
-                            style={{ opacity: i === routineBelongings.length - 1 ? 0.25 : 1 }}
-                          >
-                            <Ionicons name="chevron-down" size={18} color={C.textMuted} />
-                          </TouchableOpacity>
-                        </View>
-                        <Text style={styles.belongingText}>{item}</Text>
+                {routineBelongings.map((item, i) => (
+                  <View key={`rb-${i}`}>
+                    <View style={styles.belongingRow}>
+                      <View style={styles.reorderButtons}>
                         <TouchableOpacity
-                          onPress={() =>
-                            setRoutineBelongings(prev => prev.filter((_, idx) => idx !== i))
-                          }
+                          onPress={() => moveRoutineBelonging(i, 'up')}
+                          disabled={i === 0}
+                          style={{ opacity: i === 0 ? 0.25 : 1 }}
                         >
-                          <Ionicons name="remove-circle" size={22} color="#E57373" />
+                          <Ionicons name="chevron-up" size={18} color={C.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => moveRoutineBelonging(i, 'down')}
+                          disabled={i === routineBelongings.length - 1}
+                          style={{ opacity: i === routineBelongings.length - 1 ? 0.25 : 1 }}
+                        >
+                          <Ionicons name="chevron-down" size={18} color={C.textMuted} />
                         </TouchableOpacity>
                       </View>
-                      {i < routineBelongings.length - 1 && <View style={styles.belongingDivider} />}
+                      <Text style={styles.belongingText}>{item}</Text>
+                      <TouchableOpacity
+                        onPress={() =>
+                          setRoutineBelongings(prev => prev.filter((_, idx) => idx !== i))
+                        }
+                      >
+                        <Ionicons name="remove-circle" size={22} color="#E57373" />
+                      </TouchableOpacity>
                     </View>
-                  ))
-                ) : (
-                  <TextInput
-                    style={styles.formInput}
-                    placeholder="例：名刺"
-                    placeholderTextColor={C.placeholder}
-                    value={newRoutineBelonging}
-                    onChangeText={setNewRoutineBelonging}
-                    onSubmitEditing={addRoutineBelonging}
-                  />
-                )}
+                    {i < routineBelongings.length - 1 && <View style={styles.belongingDivider} />}
+                  </View>
+                ))}
               </View>
-              <View style={styles.addBelongingRowEnd}>
-                <TouchableOpacity
-                  style={styles.addBelongingButton}
-                  onPress={() => {
-                    if (routineBelongings.length === 0 && newRoutineBelonging.trim()) {
-                      addRoutineBelonging();
-                    } else {
-                      setRoutineBelongings(prev => [...prev, '']);
-                    }
-                  }}
-                >
+              <View style={styles.addBelongingRow}>
+                <TextInput
+                  style={styles.addBelongingInput}
+                  placeholder="例：名刺"
+                  placeholderTextColor={C.placeholder}
+                  value={newRoutineBelonging}
+                  onChangeText={setNewRoutineBelonging}
+                  onSubmitEditing={addRoutineBelonging}
+                />
+                <TouchableOpacity style={styles.addBelongingButton} onPress={addRoutineBelonging}>
                   <Ionicons name="add" size={16} color={C.primary} />
                   <Text style={styles.addBelongingButtonText}>持ち物を追加</Text>
                 </TouchableOpacity>
@@ -917,7 +909,7 @@ const styles = StyleSheet.create({
   },
   selectedRoutineRow: { flexDirection: 'row', alignItems: 'center', gap: 10.5, flex: 1 },
   selectedRoutineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-  addBelongingRowEnd: { alignItems: 'flex-end' },
+
 
   // (routine picker styles are in pickerStyles above)
 
