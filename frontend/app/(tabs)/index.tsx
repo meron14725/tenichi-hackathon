@@ -1,9 +1,11 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import OwlChatBubble from '@/components/owl-chat-bubble';
 import TodoCard from '@/components/todo-card';
+
+const owlAvatar = require('@/assets/images/owl-avatar.png');
 
 // Colors
 const C = {
@@ -20,26 +22,23 @@ const C = {
   white: '#FFFFFF',
   fabBg: '#436F9B',
   warmText: '#AA8A5E',
-  lineTJ: '#436F9B', // headerBgと同色だが路線カラーとして意味的に分離
-  lineJS: '#E2725B',
+  adviceBorder: '#A8C0DD',
 };
 
 // Mock data
 const TIMELINE = [
   {
     time: '08:34',
-    title: '志木発',
-    lineCode: 'TJ',
-    lineName: '東武東上線準急',
-    lineColor: C.lineTJ,
+    title: '荻窪発',
+    lineName: '中央線快速',
+    lineColor: '#E2725B',
     past: true,
   },
   {
     time: '08:52',
-    title: '池袋乗換',
-    lineCode: 'JS',
-    lineName: 'JR湘南新宿ライン快速',
-    lineColor: C.lineJS,
+    title: '新宿乗換',
+    lineName: '山手線',
+    lineColor: '#6E8F8A',
     past: true,
   },
   {
@@ -94,7 +93,7 @@ export default function HomeScreen() {
             <Feather name="more-horizontal" size={20} color={C.white} />
           </TouchableOpacity>
         </View>
-        <OwlChatBubble message={'明日の準備をしよう！\nテキストテキスト\nテキスト'} />
+        <OwlChatBubble message={'スケジュールを登録しよう！\nテキストテキスト\nテキスト'} />
       </View>
     );
   }
@@ -121,8 +120,8 @@ export default function HomeScreen() {
     return (
       <View style={styles.scheduleHeaderRow}>
         <View style={styles.scheduleHeaderLeft}>
-          <Text style={styles.scheduleDate}>3/5 (木)</Text>
-          <Text style={styles.scheduleTitle}>明日の予定</Text>
+          <Text style={styles.scheduleDate}>3/4 (木)</Text>
+          <Text style={styles.scheduleTitle}>今日の予定</Text>
         </View>
         <TouchableOpacity style={styles.mapButton}>
           <Ionicons name="map-outline" size={14} color={C.textSecondary} />
@@ -174,17 +173,17 @@ export default function HomeScreen() {
 
         {/* Content column */}
         <View style={styles.timelineContent}>
-          {/* Station with train line badges */}
-          {item.lineCode && (
+          {/* Station with train line badge */}
+          {item.lineName && (
             <View style={styles.stationRow}>
               <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
-              <View style={styles.lineBadgeRow}>
-                <View style={styles.lineCodeBadge}>
-                  <Text style={[styles.lineCodeText, { color: textColor }]}>{item.lineCode}</Text>
-                </View>
-                <View style={[styles.lineNameBadge, { backgroundColor: item.lineColor }]}>
-                  <Text style={styles.lineNameText}>{item.lineName}</Text>
-                </View>
+              <View
+                style={[
+                  styles.lineNameBadge,
+                  { backgroundColor: item.past ? C.textMuted : item.lineColor },
+                ]}
+              >
+                <Text style={styles.lineNameText}>{item.lineName}</Text>
               </View>
             </View>
           )}
@@ -215,7 +214,7 @@ export default function HomeScreen() {
           )}
 
           {/* Simple station (no badge, no walk, no chevron) */}
-          {!item.lineCode && !item.walk && !item.hasChevron && (
+          {!item.lineName && !item.walk && !item.hasChevron && (
             <Text style={[styles.stationName, { color: textColor }]}>{item.title}</Text>
           )}
         </View>
@@ -225,6 +224,21 @@ export default function HomeScreen() {
 
   function renderTimeline() {
     return <View style={styles.timeline}>{TIMELINE.map(renderTimelineEntry)}</View>;
+  }
+
+  function renderAdviceCard() {
+    return (
+      <TouchableOpacity style={styles.adviceCard}>
+        <View style={styles.adviceContent}>
+          <Image source={owlAvatar} style={styles.adviceOwl} resizeMode="contain" />
+          <View style={styles.adviceTextWrapper}>
+            <Text style={styles.adviceTitle}>明日の予定を確認！</Text>
+            <Text style={styles.adviceSubtitle}>明日に備えて、今日の夜はぐっすり寝よう！</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={21} color={C.white} />
+      </TouchableOpacity>
+    );
   }
 
   return (
@@ -241,6 +255,7 @@ export default function HomeScreen() {
           {renderScheduleHeader()}
           {renderRoutineCard()}
           {renderTimeline()}
+          {renderAdviceCard()}
         </View>
       </ScrollView>
 
@@ -438,22 +453,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  lineBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  lineCodeBadge: {
-    borderWidth: 1,
-    borderColor: C.textMuted,
-    borderRadius: 5.25,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  lineCodeText: {
-    fontSize: 12.25,
-    fontWeight: '500',
-  },
   lineNameBadge: {
     borderRadius: 5.25,
     paddingHorizontal: 8,
@@ -503,6 +502,44 @@ const styles = StyleSheet.create({
     fontSize: 12.25,
     fontWeight: '400',
     color: C.textSecondary,
+  },
+
+  // Advice card
+  adviceCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: C.headerBg,
+    borderWidth: 3,
+    borderColor: C.adviceBorder,
+    borderRadius: 7,
+    paddingRight: 12.25,
+    gap: 7,
+  },
+  adviceContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 7,
+  },
+  adviceOwl: {
+    width: 56,
+    height: 74.49,
+  },
+  adviceTextWrapper: {
+    gap: 7,
+    paddingVertical: 12.25,
+  },
+  adviceTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 16.8,
+    color: C.white,
+  },
+  adviceSubtitle: {
+    fontSize: 12.25,
+    fontWeight: '500',
+    lineHeight: 14.7,
+    color: C.white,
   },
 
   // FAB

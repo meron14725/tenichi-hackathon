@@ -9,8 +9,8 @@ type TodoItem = {
 };
 
 const INITIAL_TODOS: TodoItem[] = [
-  { id: 1, label: '折りたたみ傘', checked: true },
-  { id: 2, label: 'スーツ', checked: false },
+  { id: 1, label: 'MTGの準備', checked: true },
+  { id: 2, label: 'スーパーで買い物', checked: false },
 ];
 
 const C = {
@@ -37,7 +37,7 @@ export default function TodoCard(): React.JSX.Element {
       <View style={styles.card}>
         <View style={styles.header}>
           <MaterialCommunityIcons name="clipboard-text-outline" size={24.5} color={C.textPrimary} />
-          <Text style={styles.headerText}>前日までに準備すること！</Text>
+          <Text style={styles.headerText}>今日やること！</Text>
         </View>
         <View style={styles.body}>
           {todos.map((todo, index) => (
