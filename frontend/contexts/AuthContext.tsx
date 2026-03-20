@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { authStorage } from '@/utils/authStorage';
-import { TokenResponse } from '@/api/authApi';
+import { TokenResponse, RefreshTokenResponse } from '@/api/authApi';
 import { api } from '@/utils/apiClient';
 
 interface AuthContextType {
@@ -51,11 +51,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const tokens = await authStorage.getTokens();
       if (!tokens?.refresh_token) return false;
 
-      const newTokens = await api.post<TokenResponse>('auth/refresh', {
+      const newTokens = await api.post<RefreshTokenResponse>('auth/refresh', {
         refresh_token: tokens.refresh_token,
       });
 
-      await authStorage.saveTokens(newTokens);
+      await authStorage.saveTokens({
+        access_token: newTokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: newTokens.expires_in,
+      });
       return true;
     } catch (error) {
       console.error('Token refresh failed:', error);
