@@ -5,7 +5,7 @@ from app.models.schedule import Schedule
 from app.models.schedule_list import PackingItem, ScheduleList
 from app.models.schedule_route import ScheduleRoute
 from app.models.tag import Tag
-from app.models.template import Template, TemplateCategory, TemplateSchedule
+from app.models.template import Category, Template, TemplateSchedule
 from app.models.user import NotificationSettings, User, UserSettings
 
 __all__ = [
@@ -19,7 +19,7 @@ __all__ = [
     "ScheduleRoute",
     "Tag",
     "Template",
-    "TemplateCategory",
+    "Category",
     "TemplateSchedule",
     "User",
     "UserSettings",

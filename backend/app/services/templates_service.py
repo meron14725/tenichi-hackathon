@@ -70,7 +70,11 @@ async def create_template(db: AsyncSession, user_id: int, data: TemplateCreate) 
     template = Template(
         user_id=user_id,
         name=data.name,
-        template_category_id=data.category_id,
+        category_id=data.category_id,
+        memo=data.memo,
+        departure_name=data.departure_name,
+        departure_lat=data.departure_lat,
+        departure_lng=data.departure_lng,
     )
     db.add(template)
     await db.flush()
@@ -92,7 +96,7 @@ async def update_template(db: AsyncSession, user_id: int, template_id: int, data
     schedules_data = update_data.pop("schedules", None)
 
     if "category_id" in update_data:
-        template.template_category_id = update_data.pop("category_id")
+        template.category_id = update_data.pop("category_id")
 
     for key, value in update_data.items():
         setattr(template, key, value)

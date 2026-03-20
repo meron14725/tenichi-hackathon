@@ -6,7 +6,11 @@ from tests.conftest import auth_headers
 
 TEMPLATE_DATA = {
     "name": "仕事の日ルーティン",
-    "category_id": 1,
+    "category_id": 3,
+    "memo": "スーツ着用の日",
+    "departure_name": "自宅",
+    "departure_lat": 35.6584,
+    "departure_lng": 139.7015,
     "schedules": [
         {
             "title": "朝の準備",
@@ -40,7 +44,11 @@ class TestCreateTemplate:
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "仕事の日ルーティン"
-        assert data["category"]["name"] == "仕事の日"
+        assert data["category"]["name"] == "仕事"
+        assert data["memo"] == "スーツ着用の日"
+        assert data["departure_name"] == "自宅"
+        assert float(data["departure_lat"]) == pytest.approx(35.6584, abs=1e-4)
+        assert float(data["departure_lng"]) == pytest.approx(139.7015, abs=1e-4)
         assert len(data["schedules"]) == 2
         assert data["schedules"][0]["title"] == "朝の準備"
         assert len(data["schedules"][0]["tags"]) == 1
@@ -94,6 +102,20 @@ class TestUpdateTemplate:
         assert response.json()["name"] == "更新ルーティン"
         # Schedules should remain
         assert len(response.json()["schedules"]) == 2
+
+    async def test_update_new_fields(self, client):
+        headers = await auth_headers(client)
+        create_resp = await _create_template(client, headers)
+        template_id = create_resp.json()["id"]
+        response = await client.put(
+            f"/api/v1/templates/{template_id}",
+            headers=headers,
+            json={"memo": "更新メモ", "departure_name": "東京駅"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["memo"] == "更新メモ"
+        assert data["departure_name"] == "東京駅"
 
     async def test_update_replace_schedules(self, client):
         headers = await auth_headers(client)
