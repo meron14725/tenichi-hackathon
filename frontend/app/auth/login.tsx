@@ -56,10 +56,9 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const response = await authApi.login({ email, password });
-      
+
       // authApiからのレスポンスをそのままuseAuthのloginへ渡す
       await login(response);
-      
     } catch (err: any) {
       setError(err.message || 'メールアドレスまたはパスワードが違います。');
     } finally {

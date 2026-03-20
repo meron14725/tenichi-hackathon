@@ -188,15 +188,12 @@ function AddressGeocoder({
 
       // 入力後 800ms 後にジオコーディング実行
       debounceTimer.current = setTimeout(() => {
-        geocoder.current?.geocode(
-          { address: text, region: 'jp' },
-          (results, status) => {
-            if (status === 'OK' && results?.[0]?.geometry?.location) {
-              const loc = results[0].geometry.location;
-              onGeocode(loc.lat(), loc.lng(), results[0].formatted_address);
-            }
+        geocoder.current?.geocode({ address: text, region: 'jp' }, (results, status) => {
+          if (status === 'OK' && results?.[0]?.geometry?.location) {
+            const loc = results[0].geometry.location;
+            onGeocode(loc.lat(), loc.lng(), results[0].formatted_address);
           }
-        );
+        });
       }, 800);
     },
     [onGeocode]
