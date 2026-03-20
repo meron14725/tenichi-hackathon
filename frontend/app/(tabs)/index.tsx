@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: C.headerBg,
     paddingHorizontal: 14,
-    paddingBottom: 50,
+    paddingBottom: 60,
     gap: 12.25,
   },
   headerTopRow: {
@@ -395,17 +395,15 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // Main content
+  // Main content (white area overlapping owl's lower body)
   mainContent: {
     backgroundColor: C.white,
-    borderTopLeftRadius: 21,
-    borderTopRightRadius: 21,
-    marginTop: -35,
     paddingHorizontal: 14,
     paddingTop: 17.5,
     paddingBottom: 17.5,
     gap: 17.5,
     minHeight: 800,
+    marginTop: -30,
   },
 
   // Todo card
