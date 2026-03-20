@@ -8,9 +8,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { apiGet, BASE_URL, clearToken } from '@/lib/api-client';
+import { apiGet, BASE_URL } from '@/lib/api-client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const C = {
   primary: '#436F9B',
@@ -37,7 +37,7 @@ type UserSettings = {
 
 export default function MyPageScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const { logout } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,8 +74,7 @@ export default function MyPageScreen() {
     } catch {
       // ログアウトAPI失敗してもローカルトークンはクリアする
     }
-    clearToken();
-    router.replace('/auth/login');
+    await logout();
   }
 
   function renderInfoRow(icon: React.ReactNode, label: string, value: string) {
