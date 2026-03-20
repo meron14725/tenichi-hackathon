@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { authApi } from '@/api/authApi';
 import { useAuth } from '@/contexts/AuthContext';
+import { ApiError } from '@/utils/apiClient';
 import {
   APIProvider,
   Map,
@@ -89,6 +90,30 @@ function validate(fields: {
 }
 
 // ==================================================================
+// Geocoder を APIProvider 配下で1つだけ初期化し共有するためのコンテキスト
+// ==================================================================
+const GeocoderContext = React.createContext<google.maps.Geocoder | null>(null);
+
+function GeocoderProvider({ children }: { children: React.ReactNode }) {
+  const geocodingLib = useMapsLibrary('geocoding');
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
+
+  useEffect(() => {
+    if (geocodingLib && !geocoderRef.current) {
+      geocoderRef.current = new geocodingLib.Geocoder();
+      setGeocoder(geocoderRef.current);
+    }
+  }, [geocodingLib]);
+
+  return <GeocoderContext.Provider value={geocoder}>{children}</GeocoderContext.Provider>;
+}
+
+function useSharedGeocoder() {
+  return React.useContext(GeocoderContext);
+}
+
+// ==================================================================
 // マップ上のピン操作とジオコーディングを管理するコンポーネント
 // ==================================================================
 function MapContent({
@@ -99,14 +124,7 @@ function MapContent({
   onPinChange: (lat: number, lng: number, address: string) => void;
 }) {
   const map = useMap();
-  const geocodingLib = useMapsLibrary('geocoding');
-  const geocoder = useRef<google.maps.Geocoder | null>(null);
-
-  useEffect(() => {
-    if (geocodingLib) {
-      geocoder.current = new geocodingLib.Geocoder();
-    }
-  }, [geocodingLib]);
+  const geocoder = useSharedGeocoder();
 
   // ピン位置が変わったらマップを移動
   useEffect(() => {
@@ -125,8 +143,8 @@ function MapContent({
       const lat = latLng.lat;
       const lng = latLng.lng;
 
-      if (geocoder.current) {
-        geocoder.current.geocode({ location: { lat, lng } }, (results, status) => {
+      if (geocoder) {
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
           const name =
             status === 'OK' && results?.[0]
               ? results[0].formatted_address
@@ -137,7 +155,7 @@ function MapContent({
         onPinChange(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
       }
     },
-    [onPinChange]
+    [geocoder, onPinChange]
   );
 
   return (
@@ -165,15 +183,8 @@ function AddressGeocoder({
   onGeocode: (lat: number, lng: number, address: string) => void;
 }) {
   const [query, setQuery] = useState('');
-  const geocodingLib = useMapsLibrary('geocoding');
-  const geocoder = useRef<google.maps.Geocoder | null>(null);
+  const geocoder = useSharedGeocoder();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (geocodingLib) {
-      geocoder.current = new geocodingLib.Geocoder();
-    }
-  }, [geocodingLib]);
 
   const handleChangeText = useCallback(
     (text: string) => {
@@ -184,11 +195,11 @@ function AddressGeocoder({
         clearTimeout(debounceTimer.current);
       }
 
-      if (!text.trim() || !geocoder.current) return;
+      if (!text.trim() || !geocoder) return;
 
       // 入力後 800ms 後にジオコーディング実行
       debounceTimer.current = setTimeout(() => {
-        geocoder.current?.geocode({ address: text, region: 'jp' }, (results, status) => {
+        geocoder?.geocode({ address: text, region: 'jp' }, (results, status) => {
           if (status === 'OK' && results?.[0]?.geometry?.location) {
             const loc = results[0].geometry.location;
             onGeocode(loc.lat(), loc.lng(), results[0].formatted_address);
@@ -196,7 +207,7 @@ function AddressGeocoder({
         });
       }, 800);
     },
-    [onGeocode]
+    [geocoder, onGeocode]
   );
 
   return (
@@ -308,8 +319,8 @@ export default function RegisterScreen() {
         password,
         name,
         home_address: homeAddress,
-        home_lat: homeLat || 0.0,
-        home_lon: homeLon || 0.0,
+        home_lat: homeLat ?? 0.0,
+        home_lon: homeLon ?? 0.0,
         preparation_minutes: Number(preparationMinutes),
         reminder_minutes_before: 5,
       });
@@ -319,13 +330,13 @@ export default function RegisterScreen() {
         refresh_token: response.refresh_token,
         expires_in: response.expires_in,
       });
-    } catch (err: any) {
-      if (err.message && err.message.includes('既')) {
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.statusCode === 409) {
         setApiError('このメールアドレスは既に登録されています。');
       } else {
-        setApiError(
-          err.message || '予期せぬエラーが発生しました。しばらく待って再度試してください。'
-        );
+        const message =
+          err instanceof Error ? err.message : '予期せぬエラーが発生しました。しばらく待って再度試してください。';
+        setApiError(message);
       }
     } finally {
       setLoading(false);
@@ -401,8 +412,10 @@ export default function RegisterScreen() {
         {/* マップ表示エリア */}
         <View style={styles.mapWrapper}>
           <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-            <MapContent pinPosition={pinPosition} onPinChange={handlePinChange} />
-            <AddressGeocoder onGeocode={handlePinChange} />
+            <GeocoderProvider>
+              <MapContent pinPosition={pinPosition} onPinChange={handlePinChange} />
+              <AddressGeocoder onGeocode={handlePinChange} />
+            </GeocoderProvider>
           </APIProvider>
         </View>
 

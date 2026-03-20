@@ -1,5 +1,19 @@
 import { authStorage } from './authStorage';
 
+/**
+ * APIエラークラス
+ * HTTPステータスコードとサーバーからのメッセージを保持する
+ */
+export class ApiError extends Error {
+  public readonly statusCode: number;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.statusCode = statusCode;
+  }
+}
+
 export class ApiClient {
   private baseURL: string;
 
@@ -49,7 +63,7 @@ export class ApiClient {
           errorData?.detail ||
           errorData?.message ||
           `Request failed with status ${response.status}`;
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, response.status);
       }
 
       // レスポンスが空の場合の対応（例: 204 No Content）
@@ -102,8 +116,14 @@ export class ApiClient {
 }
 
 // ===== シングルトンインスタンスの作成 =====
-// 環境変数からAPIのベースURLを取得します。未設定の場合はデフォルト値を設定します。
+// 環境変数からAPIのベースURLを取得します。未設定の場合はランタイムエラーとする。
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
+if (!BASE_URL) {
+  throw new Error(
+    '[ApiClient] EXPO_PUBLIC_API_URL が設定されていません。.env ファイルを確認してください。'
+  );
+}
 
 export const api = new ApiClient(BASE_URL);
 
