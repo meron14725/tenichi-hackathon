@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiPost } from '../lib/api-client';
@@ -75,32 +75,41 @@ export default function RouteResults({
   const [data, setData] = useState<RouteSearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchRoutes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const body: RouteSearchRequest = {
-      destination_lat: destinationLat,
-      destination_lon: destinationLon,
-      travel_mode: activeMode,
-      arrival_time: arrivalTime,
-    };
-
-    try {
-      const result = await apiPost<RouteSearchResponse>('/routes/search', body);
-      setData(result);
-    } catch (e: any) {
-      setError(e.message || 'ルートの取得に失敗しました');
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [destinationLat, destinationLon, arrivalTime, activeMode]);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function fetchRoutes() {
+      setLoading(true);
+      setError(null);
+      setData(null);
+
+      const body: RouteSearchRequest = {
+        destination_lat: destinationLat,
+        destination_lon: destinationLon,
+        travel_mode: activeMode,
+        arrival_time: arrivalTime,
+      };
+
+      try {
+        const result = await apiPost<RouteSearchResponse>('/routes/search', body);
+        if (!cancelled) setData(result);
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e.message || 'ルートの取得に失敗しました');
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
     fetchRoutes();
-  }, [fetchRoutes]);
+    return () => {
+      cancelled = true;
+    };
+  }, [destinationLat, destinationLon, arrivalTime, activeMode, retryCount]);
 
   return (
     <View style={styles.container}>
@@ -140,7 +149,7 @@ export default function RouteResults({
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={32} color={C.textMuted} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchRoutes}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => setRetryCount(c => c + 1)}>
             <Text style={styles.retryText}>再試行</Text>
           </TouchableOpacity>
         </View>
@@ -191,49 +200,55 @@ function ItineraryCard({ itinerary }: { itinerary: ItineraryResponse }) {
           </View>
         </View>
 
-        {itinerary.legs.map((leg, legIndex) => (
-          <React.Fragment key={legIndex}>
-            {/* Connector */}
-            <View style={styles.connector}>
-              {leg.mode === 'WALK' ? (
-                <View style={styles.connectorContent}>
-                  <MaterialCommunityIcons name="walk" size={14} color={C.textSecondary} />
-                  <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
-                </View>
-              ) : (
-                <View style={styles.connectorContent}>
-                  {leg.route_short_name && (
-                    <View
-                      style={[
-                        styles.lineBadge,
-                        {
-                          borderColor: getLineColor(leg.route_short_name),
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.lineBadgeText,
-                          { color: getLineColor(leg.route_short_name) },
-                        ]}
-                      >
-                        {leg.route_short_name}
-                      </Text>
+        {itinerary.legs.map((leg, legIndex) => {
+          // 最後のWALK legは目的地バッジ側で表示するのでスキップ
+          const isLastWalkLeg = legIndex === itinerary.legs.length - 1 && leg.mode === 'WALK';
+          return (
+            <React.Fragment key={legIndex}>
+              {/* Connector (最後のWALK legは除く) */}
+              {!isLastWalkLeg && (
+                <View style={styles.connector}>
+                  {leg.mode === 'WALK' ? (
+                    <View style={styles.connectorContent}>
+                      <MaterialCommunityIcons name="walk" size={14} color={C.textSecondary} />
+                      <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.connectorContent}>
+                      {leg.route_short_name && (
+                        <View
+                          style={[
+                            styles.lineBadge,
+                            {
+                              borderColor: getLineColor(leg.route_short_name),
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.lineBadgeText,
+                              { color: getLineColor(leg.route_short_name) },
+                            ]}
+                          >
+                            {leg.route_short_name}
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
                     </View>
                   )}
-                  <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
                 </View>
               )}
-            </View>
 
-            {/* Station */}
-            {legIndex < itinerary.legs.length - 1 && (
-              <View style={styles.timelineStep}>
-                <Text style={styles.stationName}>{leg.to_name}</Text>
-              </View>
-            )}
-          </React.Fragment>
-        ))}
+              {/* Station */}
+              {legIndex < itinerary.legs.length - 1 && (
+                <View style={styles.timelineStep}>
+                  <Text style={styles.stationName}>{leg.to_name}</Text>
+                </View>
+              )}
+            </React.Fragment>
+          );
+        })}
 
         {/* Destination badge */}
         <View style={styles.timelineStep}>
