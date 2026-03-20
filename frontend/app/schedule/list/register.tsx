@@ -910,7 +910,6 @@ const styles = StyleSheet.create({
   selectedRoutineRow: { flexDirection: 'row', alignItems: 'center', gap: 10.5, flex: 1 },
   selectedRoutineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
 
-
   // (routine picker styles are in pickerStyles above)
 
   // Modal
