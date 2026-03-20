@@ -92,10 +92,10 @@ export default function HomeScreen() {
   ]);
 
   const toggleTodo = (id: number) => {
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, checked: !t.checked } : t)));
+    setTodos(prev => prev.map(t => (t.id === id ? { ...t, checked: !t.checked } : t)));
   };
 
-  const remainingCount = todos.filter((t) => !t.checked).length;
+  const remainingCount = todos.filter(t => !t.checked).length;
 
   function renderHeader() {
     return (
@@ -460,8 +460,8 @@ const styles = StyleSheet.create({
     height: 17.5,
     borderRadius: 3.5,
     backgroundColor: C.headerBg,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   uncheckedBox: {
     width: 17.5,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     borderColor: C.textMuted,
   },
   remainingBadge: {
-    position: 'absolute' as const,
+    position: 'absolute',
     right: 0,
     bottom: -12,
     backgroundColor: '#A86A78',
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   },
   remainingBadgeText: {
     fontSize: 14,
-    fontWeight: '500' as const,
+    fontWeight: '500',
     color: C.white,
   },
   dashedDivider: {

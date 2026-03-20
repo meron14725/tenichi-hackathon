@@ -31,10 +31,10 @@ export default function ScheduleIndexScreen() {
   ]);
 
   const toggleTodo = (id: number) => {
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, checked: !t.checked } : t)));
+    setTodos(prev => prev.map(t => (t.id === id ? { ...t, checked: !t.checked } : t)));
   };
 
-  const remainingCount = todos.filter((t) => !t.checked).length;
+  const remainingCount = todos.filter(t => !t.checked).length;
 
   return (
     <View style={styles.container}>
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   chatTriangle: {
-    position: 'absolute' as const,
+    position: 'absolute',
     left: -8,
     bottom: 20,
     width: 0,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 11,
     borderRightColor: C.white,
   },
-  chatText: { fontSize: 14, fontWeight: '500' as const, lineHeight: 21, color: C.textPrimary },
+  chatText: { fontSize: 14, fontWeight: '500', lineHeight: 21, color: C.textPrimary },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
   mainContent: {
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
 
   // Todo
-  todoCardWrapper: { position: 'relative' as const },
+  todoCardWrapper: { position: 'relative' },
   todoCard: { borderWidth: 2, borderColor: C.todoBorder, borderRadius: 14, overflow: 'hidden' },
   todoHeader: {
     flexDirection: 'row',
@@ -224,8 +224,8 @@ const styles = StyleSheet.create({
     height: 17.5,
     borderRadius: 3.5,
     backgroundColor: C.headerBg,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   uncheckedBox: {
     width: 17.5,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     borderColor: C.textMuted,
   },
   remainingBadge: {
-    position: 'absolute' as const,
+    position: 'absolute',
     right: 0,
     bottom: -12,
     backgroundColor: '#A86A78',
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   },
   remainingBadgeText: {
     fontSize: 14,
-    fontWeight: '500' as const,
+    fontWeight: '500',
     color: C.white,
   },
   dashedDivider: {
