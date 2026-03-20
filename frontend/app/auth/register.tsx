@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,9 +11,17 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { BASE_URL, setToken } from '@/lib/api-client';
+import { authApi } from '@/api/authApi';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
+  useMap,
+  useMapsLibrary,
+} from '@vis.gl/react-google-maps';
 
 const C = {
   primary: '#436F9B',
@@ -25,6 +33,11 @@ const C = {
   placeholder: '#98A6AE',
   error: '#D94040',
 };
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+
+// 東京をデフォルト中心にする
+const DEFAULT_CENTER = { lat: 35.6762, lng: 139.6503 };
 
 type FieldErrors = {
   email?: string;
@@ -65,24 +78,181 @@ function validate(fields: {
   }
 
   if (!fields.homeAddress || fields.homeAddress.length > 200) {
-    errors.home_address = '住所を選択してください。';
+    errors.home_address = '住所を入力してください。';
   }
 
   if (fields.homeLat === null) {
-    errors.home_address = 'マップから住所を選択してください。';
+    errors.home_address = 'マップ上で住所をピンで指定してください。';
   }
 
   return errors;
 }
 
+// ==================================================================
+// マップ上のピン操作とジオコーディングを管理するコンポーネント
+// ==================================================================
+function MapContent({
+  pinPosition,
+  onPinChange,
+}: {
+  pinPosition: { lat: number; lng: number } | null;
+  onPinChange: (lat: number, lng: number, address: string) => void;
+}) {
+  const map = useMap();
+  const geocodingLib = useMapsLibrary('geocoding');
+  const geocoder = useRef<google.maps.Geocoder | null>(null);
+
+  useEffect(() => {
+    if (geocodingLib) {
+      geocoder.current = new geocodingLib.Geocoder();
+    }
+  }, [geocodingLib]);
+
+  // ピン位置が変わったらマップを移動
+  useEffect(() => {
+    if (map && pinPosition) {
+      map.panTo(pinPosition);
+      map.setZoom(16);
+    }
+  }, [map, pinPosition]);
+
+  // マップをクリック → その場所にピンを移動 + 逆ジオコーディングで住所取得
+  const handleMapClick = useCallback(
+    (e: any) => {
+      const latLng = e.detail?.latLng;
+      if (!latLng) return;
+
+      const lat = latLng.lat;
+      const lng = latLng.lng;
+
+      if (geocoder.current) {
+        geocoder.current.geocode({ location: { lat, lng } }, (results, status) => {
+          const name =
+            status === 'OK' && results?.[0]
+              ? results[0].formatted_address
+              : `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          onPinChange(lat, lng, name);
+        });
+      } else {
+        onPinChange(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      }
+    },
+    [onPinChange]
+  );
+
+  return (
+    <>
+      <Map
+        defaultCenter={DEFAULT_CENTER}
+        defaultZoom={12}
+        gestureHandling="greedy"
+        disableDefaultUI={true}
+        onClick={handleMapClick as any}
+        style={{ width: '100%', height: '100%' }}
+        mapId="register-address-map"
+      />
+      {pinPosition && <AdvancedMarker position={pinPosition} />}
+    </>
+  );
+}
+
+// ==================================================================
+// 住所検索 → ジオコーディングでマップ上のピンを移動
+// ==================================================================
+function AddressGeocoder({
+  onGeocode,
+}: {
+  onGeocode: (lat: number, lng: number, address: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const geocodingLib = useMapsLibrary('geocoding');
+  const geocoder = useRef<google.maps.Geocoder | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (geocodingLib) {
+      geocoder.current = new geocodingLib.Geocoder();
+    }
+  }, [geocodingLib]);
+
+  const handleChangeText = useCallback(
+    (text: string) => {
+      setQuery(text);
+
+      // 前のタイマーをクリア
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+
+      if (!text.trim() || !geocoder.current) return;
+
+      // 入力後 800ms 後にジオコーディング実行
+      debounceTimer.current = setTimeout(() => {
+        geocoder.current?.geocode(
+          { address: text, region: 'jp' },
+          (results, status) => {
+            if (status === 'OK' && results?.[0]?.geometry?.location) {
+              const loc = results[0].geometry.location;
+              onGeocode(loc.lat(), loc.lng(), results[0].formatted_address);
+            }
+          }
+        );
+      }, 800);
+    },
+    [onGeocode]
+  );
+
+  return (
+    <View style={geocoderStyles.container}>
+      <Ionicons name="search" size={18} color={C.placeholder} />
+      <TextInput
+        style={geocoderStyles.input}
+        placeholder="住所を入力してマップを移動"
+        placeholderTextColor={C.placeholder}
+        value={query}
+        onChangeText={handleChangeText}
+      />
+      {query.length > 0 && (
+        <TouchableOpacity onPress={() => setQuery('')}>
+          <Ionicons name="close-circle" size={16} color={C.textMuted} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+const geocoderStyles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    top: 8,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.white,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 40,
+    gap: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+      },
+    }),
+  },
+  input: {
+    flex: 1,
+    fontSize: 14,
+    color: C.textPrimary,
+  },
+});
+
+// ==================================================================
+// メインの登録画面コンポーネント
+// ==================================================================
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    home_lat?: string;
-    home_lon?: string;
-    home_address?: string;
-  }>();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -90,14 +260,17 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [preparationMinutes, setPreparationMinutes] = useState('');
 
-  // 住所はマップピッカーから受け取る
-  const homeAddress = params.home_address ?? '';
-  const homeLat = params.home_lat ? parseFloat(params.home_lat) : null;
-  const homeLon = params.home_lon ? parseFloat(params.home_lon) : null;
+  // 住所関連 state
+  const [homeAddress, setHomeAddress] = useState('');
+  const [homeLat, setHomeLat] = useState<number | null>(null);
+  const [homeLon, setHomeLon] = useState<number | null>(null);
+  const [pinPosition, setPinPosition] = useState<{ lat: number; lng: number } | null>(null);
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const { login } = useAuth();
 
   const allFilled =
     email.length > 0 &&
@@ -105,6 +278,14 @@ export default function RegisterScreen() {
     name.length > 0 &&
     preparationMinutes.length > 0 &&
     homeAddress.length > 0;
+
+  // 住所検索結果やマップクリックでピン位置と住所を更新するハンドラ
+  const handlePinChange = useCallback((lat: number, lng: number, address: string) => {
+    setHomeLat(lat);
+    setHomeLon(lng);
+    setHomeAddress(address);
+    setPinPosition({ lat, lng });
+  }, []);
 
   async function handleRegister() {
     setApiError('');
@@ -125,39 +306,30 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          name,
-          home_address: homeAddress,
-          home_lat: homeLat,
-          home_lon: homeLon,
-          preparation_minutes: Number(preparationMinutes),
-          reminder_minutes_before: 5,
-        }),
+      const response = await authApi.register({
+        email,
+        password,
+        name,
+        home_address: homeAddress,
+        home_lat: homeLat || 0.0,
+        home_lon: homeLon || 0.0,
+        preparation_minutes: Number(preparationMinutes),
+        reminder_minutes_before: 5,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        if (res.status === 409) {
-          setApiError('このメールアドレスは既に登録されています。');
-        } else if (errorData?.detail) {
-          setApiError(errorData.detail);
-        } else {
-          setApiError('予期せぬエラーが発生しました。しばらく待って再度試してください。');
-        }
-        return;
+      await login({
+        access_token: response.access_token,
+        refresh_token: response.refresh_token,
+        expires_in: response.expires_in,
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('既')) {
+        setApiError('このメールアドレスは既に登録されています。');
+      } else {
+        setApiError(
+          err.message || '予期せぬエラーが発生しました。しばらく待って再度試してください。'
+        );
       }
-
-      const { access_token } = await res.json();
-      setToken(access_token);
-
-      router.replace('/(tabs)/calendar');
-    } catch {
-      setApiError('予期せぬエラーが発生しました。しばらく待って再度試してください。');
     } finally {
       setLoading(false);
     }
@@ -202,6 +374,54 @@ export default function RegisterScreen() {
           )}
         </View>
         {err && <Text style={styles.fieldError}>{err}</Text>}
+      </View>
+    );
+  }
+
+  function renderMapSection() {
+    if (!GOOGLE_MAPS_API_KEY) {
+      return (
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>自宅住所</Text>
+          <View style={styles.noMapContainer}>
+            <Ionicons name="map-outline" size={28} color={C.textMuted} />
+            <Text style={styles.noMapText}>
+              Google Maps APIキーが未設定です。{'\n'}
+              EXPO_PUBLIC_GOOGLE_MAPS_API_KEY を設定してください。
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>自宅住所</Text>
+        <Text style={styles.sublabel}>
+          住所を入力するとマップが移動します。ピンをタップで微調整できます。
+        </Text>
+
+        {/* マップ表示エリア */}
+        <View style={styles.mapWrapper}>
+          <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+            <MapContent pinPosition={pinPosition} onPinChange={handlePinChange} />
+            <AddressGeocoder onGeocode={handlePinChange} />
+          </APIProvider>
+        </View>
+
+        {/* 選択された住所の表示 */}
+        {homeAddress ? (
+          <View style={styles.selectedAddressRow}>
+            <Ionicons name="location" size={16} color={C.primary} />
+            <Text style={styles.selectedAddressText} numberOfLines={2}>
+              {homeAddress}
+            </Text>
+          </View>
+        ) : null}
+
+        {fieldErrors.home_address && (
+          <Text style={styles.fieldError}>{fieldErrors.home_address}</Text>
+        )}
       </View>
     );
   }
@@ -262,35 +482,8 @@ export default function RegisterScreen() {
               keyboardType: 'numeric',
             })}
 
-            {/* 住所選択 - マップピッカーで選択 */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>自宅住所</Text>
-              <TouchableOpacity
-                style={[styles.addressButton, fieldErrors.home_address && styles.inputError]}
-                onPress={() =>
-                  router.push({
-                    pathname: '/schedule/destination-picker',
-                    params: { returnTo: 'auth/register' },
-                  })
-                }
-              >
-                <Ionicons
-                  name="location"
-                  size={18}
-                  color={homeAddress ? C.primary : C.placeholder}
-                />
-                <Text
-                  style={[styles.addressText, !homeAddress && styles.addressPlaceholder]}
-                  numberOfLines={1}
-                >
-                  {homeAddress || 'マップから住所を選択'}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
-              </TouchableOpacity>
-              {fieldErrors.home_address && (
-                <Text style={styles.fieldError}>{fieldErrors.home_address}</Text>
-              )}
-            </View>
+            {/* マップ付き住所選択セクション */}
+            {renderMapSection()}
 
             <TouchableOpacity
               style={[styles.button, (!allFilled || loading) && styles.buttonDisabled]}
@@ -305,7 +498,7 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.linkButton} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/auth/login')}>
               <Text style={styles.linkText}>
                 アカウントをお持ちの方は
                 <Text style={styles.linkTextBold}> ログイン</Text>
@@ -401,6 +594,12 @@ const styles = StyleSheet.create({
     color: C.textSecondary,
     marginBottom: 8,
   },
+  sublabel: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: C.textMuted,
+    marginBottom: 8,
+  },
   input: {
     height: 48,
     borderWidth: 1,
@@ -431,25 +630,46 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Address picker button
-  addressButton: {
-    height: 48,
+  // Map section
+  mapWrapper: {
+    height: 240,
+    borderRadius: 10,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: C.bg,
-    borderRadius: 7,
-    paddingHorizontal: 14,
+    position: 'relative',
+  },
+  selectedAddressRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 8,
+    backgroundColor: '#F0F5FA',
+    borderRadius: 7,
+    padding: 10,
+  },
+  selectedAddressText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: C.textPrimary,
+    lineHeight: 18,
+  },
+  noMapContainer: {
+    height: 120,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.bg,
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: C.white,
+    padding: 16,
   },
-  addressText: {
-    flex: 1,
-    fontSize: 15,
-    color: C.textPrimary,
-  },
-  addressPlaceholder: {
-    color: C.placeholder,
+  noMapText: {
+    fontSize: 12,
+    color: C.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 
   // Button
