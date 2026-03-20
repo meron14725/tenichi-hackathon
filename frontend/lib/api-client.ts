@@ -5,16 +5,22 @@ export const BASE_URL = 'https://fastapi-backend-825512055944.asia-northeast1.ru
 // 注意: Cloud RunのCORSが本番では無効のため、ブラウザからのloginリクエストは通らない
 // そのためJSON APIでログインしてトークンをキャッシュする方式を取る
 let cachedToken: string | null = null;
+let loggedOut = false;
 
 export function setToken(token: string) {
   cachedToken = token;
+  loggedOut = false;
 }
 
 export function clearToken() {
   cachedToken = null;
+  loggedOut = true;
 }
 
 async function getToken(): Promise<string> {
+  if (loggedOut) {
+    throw new Error('Not authenticated');
+  }
   if (cachedToken) return cachedToken;
 
   const res = await fetch(`${BASE_URL}/auth/login`, {
