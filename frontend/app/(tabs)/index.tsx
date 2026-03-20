@@ -2,12 +2,12 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import OwlChatBubble from '@/components/owl-chat-bubble';
+import TodoCard from '@/components/todo-card';
 
 // Colors
 const C = {
   headerBg: '#436F9B',
-  todoBg: '#E6EDF6',
-  todoBorder: '#A8C0DD',
   routineBorder: '#6E8F8A',
   weatherBg: '#EDF0F2',
   trainBg: '#EEF0F1',
@@ -88,47 +88,13 @@ export default function HomeScreen() {
   function renderHeader() {
     return (
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <View style={styles.chatRow}>
-          {/* Avatar */}
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={22} color={C.white} />
-          </View>
-          {/* Chat bubble */}
-          <View style={styles.chatBubble}>
-            <Text style={styles.chatText}>明日の準備をしよう！</Text>
-          </View>
+        <View style={styles.headerTopRow}>
+          <View style={styles.menuSpacer} />
+          <TouchableOpacity style={styles.menuButton}>
+            <Feather name="more-horizontal" size={20} color={C.white} />
+          </TouchableOpacity>
         </View>
-        {/* Menu button */}
-        <TouchableOpacity style={styles.menuButton}>
-          <Feather name="more-horizontal" size={20} color={C.white} />
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  function renderTodoCard() {
-    return (
-      <View style={styles.todoCard}>
-        {/* Todo header */}
-        <View style={styles.todoHeader}>
-          <MaterialCommunityIcons name="clipboard-text-outline" size={24.5} color={C.textPrimary} />
-          <Text style={styles.todoHeaderText}>前日までに準備すること！</Text>
-        </View>
-        {/* Todo body */}
-        <View style={styles.todoBody}>
-          {/* Checked item */}
-          <View style={styles.todoRow}>
-            <Ionicons name="checkbox" size={22} color="#4CAF50" />
-            <Text style={styles.todoCheckedText}>折りたたみ傘</Text>
-          </View>
-          {/* Dashed divider */}
-          <View style={styles.dashedDivider} />
-          {/* Unchecked item */}
-          <View style={styles.todoRow}>
-            <View style={styles.uncheckedBox} />
-            <Text style={styles.todoText}>スーツ</Text>
-          </View>
-        </View>
+        <OwlChatBubble message={'明日の準備をしよう！\nテキストテキスト\nテキスト'} />
       </View>
     );
   }
@@ -270,7 +236,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mainContent}>
-          {renderTodoCard()}
+          <TodoCard />
           {renderWeatherTrainRow()}
           {renderScheduleHeader()}
           {renderRoutineCard()}
@@ -295,40 +261,18 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: C.headerBg,
     paddingHorizontal: 14,
-    paddingBottom: 24.5,
+    paddingBottom: 60,
+    gap: 12.25,
   },
-  chatRow: {
+  headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  chatBubble: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderTopLeftRadius: 3.5,
-    borderTopRightRadius: 10.5,
-    borderBottomLeftRadius: 10.5,
-    borderBottomRightRadius: 10.5,
-    padding: 12,
-  },
-  chatText: {
-    fontSize: 14,
-    fontWeight: '400',
-    lineHeight: 21,
-    color: C.textPrimary,
+  menuSpacer: {
+    width: 35,
   },
   menuButton: {
-    position: 'absolute',
-    right: 14,
-    bottom: 32,
     width: 35,
     height: 35,
     borderRadius: 17.5,
@@ -345,75 +289,14 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // Main content
   mainContent: {
     backgroundColor: C.white,
-    borderTopLeftRadius: 10.5,
-    borderTopRightRadius: 10.5,
-    marginTop: -8,
     paddingHorizontal: 14,
     paddingTop: 17.5,
     paddingBottom: 17.5,
     gap: 17.5,
     minHeight: 800,
-  },
-
-  // Todo card
-  todoCard: {
-    borderWidth: 2,
-    borderColor: C.todoBorder,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  todoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.todoBg,
-    borderBottomWidth: 2,
-    borderBottomColor: C.todoBorder,
-    paddingHorizontal: 17.5,
-    paddingVertical: 12.25,
-  },
-  todoHeaderText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: C.textPrimary,
-  },
-  todoBody: {
-    paddingHorizontal: 17.5,
-    paddingVertical: 17.5,
-    gap: 17.5,
-  },
-  todoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  todoCheckedText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: C.textPrimary,
-    textDecorationLine: 'line-through',
-    textDecorationColor: C.textMuted,
-  },
-  todoText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: C.textPrimary,
-  },
-  uncheckedBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: C.textMuted,
-  },
-  dashedDivider: {
-    height: 0,
-    borderBottomWidth: 1.5,
-    borderBottomColor: C.todoBorder,
-    borderStyle: 'dashed',
+    marginTop: -30,
   },
 
   // Weather + Train

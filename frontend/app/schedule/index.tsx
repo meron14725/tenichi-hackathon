@@ -3,18 +3,17 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import OwlChatBubble from '@/components/owl-chat-bubble';
+import TodoCard from '@/components/todo-card';
 
 const C = {
   headerBg: '#436F9B',
   primary: '#436F9B',
   accent: '#6E8F8A',
-  todoBg: '#E6EDF6',
-  todoBorder: '#A8C0DD',
   weatherBg: '#EDF0F2',
   trainBg: '#EEF0F1',
   textPrimary: '#1F2528',
   textSecondary: '#63747E',
-  textMuted: '#B5BFC5',
   black: '#000000',
   white: '#FFFFFF',
   warmText: '#AA8A5E',
@@ -32,14 +31,7 @@ export default function ScheduleIndexScreen() {
           <Ionicons name="chevron-back" size={22} color={C.white} />
           <Text style={styles.backText}>カレンダー</Text>
         </TouchableOpacity>
-        <View style={styles.chatRow}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={22} color={C.white} />
-          </View>
-          <View style={styles.chatBubble}>
-            <Text style={styles.chatText}>スケジュールを登録しよう！</Text>
-          </View>
-        </View>
+        <OwlChatBubble message="スケジュールを登録しよう！" />
       </View>
 
       <ScrollView
@@ -48,28 +40,7 @@ export default function ScheduleIndexScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mainContent}>
-          {/* Checklist */}
-          <View style={styles.todoCard}>
-            <View style={styles.todoHeader}>
-              <MaterialCommunityIcons
-                name="clipboard-text-outline"
-                size={24.5}
-                color={C.textPrimary}
-              />
-              <Text style={styles.todoHeaderText}>前日までに準備すること！</Text>
-            </View>
-            <View style={styles.todoBody}>
-              <View style={styles.todoRow}>
-                <Ionicons name="checkbox" size={22} color="#4CAF50" />
-                <Text style={styles.todoCheckedText}>折りたたみ傘</Text>
-              </View>
-              <View style={styles.dashedDivider} />
-              <View style={styles.todoRow}>
-                <View style={styles.uncheckedBox} />
-                <Text style={styles.todoText}>スーツ</Text>
-              </View>
-            </View>
-          </View>
+          <TodoCard />
 
           {/* Weather + Train */}
           <View style={styles.infoRow}>
@@ -121,77 +92,19 @@ export default function ScheduleIndexScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.headerBg },
-  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, paddingBottom: 24.5, gap: 12 },
+  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, paddingBottom: 60, gap: 12 },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   backText: { fontSize: 14, fontWeight: '500', color: C.white },
-  chatRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chatBubble: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderTopLeftRadius: 3.5,
-    borderTopRightRadius: 10.5,
-    borderBottomLeftRadius: 10.5,
-    borderBottomRightRadius: 10.5,
-    padding: 12,
-  },
-  chatText: { fontSize: 14, fontWeight: '400', lineHeight: 21, color: C.textPrimary },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
   mainContent: {
     backgroundColor: C.white,
-    borderTopLeftRadius: 10.5,
-    borderTopRightRadius: 10.5,
-    marginTop: -8,
     paddingHorizontal: 14,
     paddingTop: 17.5,
     paddingBottom: 17.5,
     gap: 17.5,
     minHeight: 600,
-  },
-
-  // Todo
-  todoCard: { borderWidth: 2, borderColor: C.todoBorder, borderRadius: 14, overflow: 'hidden' },
-  todoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.todoBg,
-    borderBottomWidth: 2,
-    borderBottomColor: C.todoBorder,
-    paddingHorizontal: 17.5,
-    paddingVertical: 12.25,
-  },
-  todoHeaderText: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-  todoBody: { paddingHorizontal: 17.5, paddingVertical: 17.5, gap: 17.5 },
-  todoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  todoCheckedText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: C.textPrimary,
-    textDecorationLine: 'line-through',
-    textDecorationColor: C.textMuted,
-  },
-  todoText: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
-  uncheckedBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: C.textMuted,
-  },
-  dashedDivider: {
-    height: 0,
-    borderBottomWidth: 1.5,
-    borderBottomColor: C.todoBorder,
-    borderStyle: 'dashed',
+    marginTop: -30,
   },
 
   // Info row
