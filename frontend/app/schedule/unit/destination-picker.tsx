@@ -294,7 +294,7 @@ export default function DestinationPickerScreen() {
       });
     } else {
       router.navigate({
-        pathname: '/schedule/create',
+        pathname: '/schedule/unit/create',
         params: {
           destination_lat: String(selected.lat),
           destination_lon: String(selected.lng),

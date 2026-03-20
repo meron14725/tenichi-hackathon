@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Animated,
   Modal,
@@ -11,8 +11,12 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import MapAddressPicker from '@/components/map-address-picker';
+import { userApi } from '@/api/userApi';
+import { scheduleListApi } from '@/api/scheduleListApi';
+import { categoryApi, CategoryResponse } from '@/api/categoryApi';
 
 const C = {
   primary: '#436F9B',
@@ -30,7 +34,6 @@ const C = {
   stepConnector: '#C2A070',
 };
 
-type ScheduleType = '休日' | '旅行' | '仕事' | '出張';
 type Step = 'method' | 'form' | 'routine';
 
 type Routine = {
@@ -40,13 +43,27 @@ type Routine = {
   steps: string[];
 };
 
-const SCHEDULE_TYPES: { label: ScheduleType; icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' }[] =
-  [
-    { label: '休日', icon: 'bicycle', iconSet: 'ionicons' },
-    { label: '旅行', icon: 'suitcase-rolling', iconSet: 'fa5' },
-    { label: '仕事', icon: 'briefcase-outline', iconSet: 'mci' },
-    { label: '出張', icon: 'briefcase', iconSet: 'fa5' },
-  ];
+const CATEGORY_ICON_MAP: Record<string, { icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' }> = {
+  休日: { icon: 'bicycle', iconSet: 'ionicons' },
+  旅行: { icon: 'suitcase-rolling', iconSet: 'fa5' },
+  仕事: { icon: 'briefcase-outline', iconSet: 'mci' },
+  出張: { icon: 'briefcase', iconSet: 'fa5' },
+};
+
+function getCategoryIcon(name: string) {
+  return CATEGORY_ICON_MAP[name] || { icon: 'bookmark-outline', iconSet: 'ionicons' };
+}
+
+const CATEGORY_COLORS: Record<number, string> = {
+  4: '#D1AEB6',
+  5: '#D6C093',
+  6: '#C1D3D0',
+  7: '#9284C2',
+};
+
+function getCategoryColor(id: number) {
+  return CATEGORY_COLORS[id] || C.accent;
+}
 
 const ROUTINES: Routine[] = [
   {
@@ -148,7 +165,7 @@ function RoutinePickerModal({
                         )}
                       </View>
                       <View style={pickerStyles.stepsRow}>
-                        {routine.steps.map((s, i) => (
+                        {routine.steps.map((s: string, i: number) => (
                           <React.Fragment key={`${routine.id}-step-${i}`}>
                             <View
                               style={[
@@ -317,21 +334,99 @@ const pickerStyles = StyleSheet.create({
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{ step?: string }>();
 
-  const [step, setStep] = useState<Step>('method');
-  const [title, setTitle] = useState('');
-  const [memo, setMemo] = useState('');
-  const [selectedType, setSelectedType] = useState<ScheduleType>('休日');
-  const [belongings, setBelongings] = useState<string[]>(['財布', '充電器']);
-  const [newBelonging, setNewBelonging] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [step, setStep] = useState<Step>((params.step as Step) || 'method');
+  const [name, setName] = useState<string>('');
+  const [memo, setMemo] = useState<string>('');
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [belongings, setBelongings] = useState<string[]>([]);
+  const [newBelonging, setNewBelonging] = useState<string>('');
+
+  const [departureAddress, setDepartureAddress] = useState<string>('');
+  const [departureLat, setDepartureLat] = useState<number | null>(null);
+  const [departureLng, setDepartureLng] = useState<number | null>(null);
+
+  const departurePinPosition =
+    departureLat !== null && departureLng !== null
+      ? { lat: departureLat, lng: departureLng }
+      : null;
+
+  const handleDepartureChange = useCallback((lat: number, lng: number, address: string) => {
+    setDepartureLat(lat);
+    setDepartureLng(lng);
+    setDepartureAddress(address);
+  }, []);
+
+  useEffect(() => {
+    async function initData() {
+      try {
+        const [settings, cats] = await Promise.all([
+          userApi.getSettings(),
+          categoryApi.getCategories(),
+        ]);
+
+        if (settings.home_address) {
+          setDepartureAddress(settings.home_address);
+          setDepartureLat(settings.home_lat);
+          setDepartureLng(settings.home_lon);
+        }
+
+        setCategories(cats);
+        if (cats.length > 0) {
+          setSelectedCategoryId(cats[0].id);
+        }
+      } catch (e) {
+        console.error('initData failed:', e);
+      }
+    }
+    initData();
+  }, []);
+
+  const [showModal, setShowModal] = useState<boolean>(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine>(ROUTINES[0]);
-  const [showRoutinePicker, setShowRoutinePicker] = useState(false);
+  const [showRoutinePicker, setShowRoutinePicker] = useState<boolean>(false);
   const [routineBelongings, setRoutineBelongings] = useState<string[]>([]);
-  const [newRoutineBelonging, setNewRoutineBelonging] = useState('');
+  const [newRoutineBelonging, setNewRoutineBelonging] = useState<string>('');
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  function handleSave() {
-    setShowModal(true);
+  async function handleSave() {
+    setIsSaving(true);
+    try {
+      let reqName = '';
+      let reqMemo: string | null = null;
+      let reqPacking: { name: string; sort_order: number }[] = [];
+
+      if (step === 'form') {
+        reqName = name || '無題の予定';
+        reqMemo = memo || null;
+        reqPacking = belongings.map((n, index) => ({ name: n, sort_order: index }));
+      } else if (step === 'routine') {
+        reqName = selectedRoutine.title;
+        reqPacking = routineBelongings.map((n, index) => ({ name: n, sort_order: index }));
+      }
+
+      const d = new Date();
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      await scheduleListApi.create({
+        name: reqName,
+        date: dateStr,
+        category_id: selectedCategoryId,
+        memo: reqMemo,
+        departure_name: departureAddress || null,
+        departure_lat: departureLat,
+        departure_lng: departureLng,
+        packing_items: reqPacking,
+      });
+
+      setShowModal(true);
+    } catch (e) {
+      console.error('Failed to create schedule-list:', e);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function addRoutineBelonging() {
@@ -353,7 +448,9 @@ export default function RegisterScreen() {
   }
 
   function handleBack() {
-    if (step === 'form' || step === 'routine') {
+    if (params.step) {
+      router.back();
+    } else if (step === 'form' || step === 'routine') {
       setStep('method');
       setSelectedRoutine(ROUTINES[0]);
     } else {
@@ -363,12 +460,36 @@ export default function RegisterScreen() {
 
   const canSave = step === 'form' || step === 'routine';
 
-  function renderTypeIcon(item: (typeof SCHEDULE_TYPES)[number], color: string) {
+  function moveBelonging(index: number, direction: 'up' | 'down') {
+    setBelongings(prev => {
+      const next = [...prev];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function moveRoutineBelonging(index: number, direction: 'up' | 'down') {
+    setRoutineBelongings(prev => {
+      const next = [...prev];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function renderCategoryIcon(
+    iconInfo: { icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' },
+    color: string
+  ) {
     const size = 20;
-    if (item.iconSet === 'ionicons')
-      return <Ionicons name={item.icon as any} size={size} color={color} />;
-    if (item.iconSet === 'fa5') return <FontAwesome5 name={item.icon} size={size} color={color} />;
-    return <MaterialCommunityIcons name={item.icon as any} size={size} color={color} />;
+    if (iconInfo.iconSet === 'ionicons')
+      return <Ionicons name={iconInfo.icon as any} size={size} color={color} />;
+    if (iconInfo.iconSet === 'fa5')
+      return <FontAwesome5 name={iconInfo.icon} size={size} color={color} />;
+    return <MaterialCommunityIcons name={iconInfo.icon as any} size={size} color={color} />;
   }
 
   return (
@@ -379,8 +500,8 @@ export default function RegisterScreen() {
           <Ionicons name="chevron-back" size={24} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>予定を登録</Text>
-        <TouchableOpacity onPress={canSave ? handleSave : undefined}>
-          <Text style={[styles.saveText, !canSave && { opacity: 0.3 }]}>保存</Text>
+        <TouchableOpacity onPress={canSave && !isSaving ? handleSave : undefined}>
+          <Text style={[styles.saveText, (!canSave || isSaving) && { opacity: 0.3 }]}>保存</Text>
         </TouchableOpacity>
       </View>
 
@@ -428,8 +549,8 @@ export default function RegisterScreen() {
                 style={styles.formInput}
                 placeholder="友達と一日遊ぶ日"
                 placeholderTextColor={C.placeholder}
-                value={title}
-                onChangeText={setTitle}
+                value={name}
+                onChangeText={setName}
               />
             </View>
 
@@ -447,17 +568,22 @@ export default function RegisterScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>予定の種類</Text>
               <View style={styles.typeRow}>
-                {SCHEDULE_TYPES.map(t => {
-                  const isSelected = selectedType === t.label;
+                {categories.map(cat => {
+                  const isSelected = selectedCategoryId === cat.id;
+                  const iconInfo = getCategoryIcon(cat.name);
+                  const catColor = getCategoryColor(cat.id);
                   return (
                     <TouchableOpacity
-                      key={t.label}
-                      style={[styles.typeButton, isSelected && styles.typeButtonSelected]}
-                      onPress={() => setSelectedType(t.label)}
+                      key={cat.id}
+                      style={[
+                        styles.typeButton,
+                        isSelected && { backgroundColor: catColor, borderColor: catColor },
+                      ]}
+                      onPress={() => setSelectedCategoryId(cat.id)}
                     >
-                      {renderTypeIcon(t, isSelected ? C.white : C.textSecondary)}
+                      {renderCategoryIcon(iconInfo, isSelected ? C.white : catColor)}
                       <Text style={[styles.typeText, isSelected && styles.typeTextSelected]}>
-                        {t.label}
+                        {cat.name}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -471,6 +597,22 @@ export default function RegisterScreen() {
                 {belongings.map((item, i) => (
                   <View key={`${item}-${i}`}>
                     <View style={styles.belongingRow}>
+                      <View style={styles.reorderButtons}>
+                        <TouchableOpacity
+                          onPress={() => moveBelonging(i, 'up')}
+                          disabled={i === 0}
+                          style={{ opacity: i === 0 ? 0.25 : 1 }}
+                        >
+                          <Ionicons name="chevron-up" size={18} color={C.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => moveBelonging(i, 'down')}
+                          disabled={i === belongings.length - 1}
+                          style={{ opacity: i === belongings.length - 1 ? 0.25 : 1 }}
+                        >
+                          <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+                        </TouchableOpacity>
+                      </View>
                       <Text style={styles.belongingText}>{item}</Text>
                       <TouchableOpacity onPress={() => removeBelonging(i)}>
                         <Ionicons name="remove-circle" size={22} color="#E57373" />
@@ -498,11 +640,23 @@ export default function RegisterScreen() {
 
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>出発地</Text>
-              <TouchableOpacity style={styles.departureCard}>
-                <Ionicons name="location-outline" size={20} color={C.textSecondary} />
-                <Text style={styles.departureText}>自宅</Text>
-                <Ionicons name="chevron-forward" size={18} color={C.textMuted} />
-              </TouchableOpacity>
+              <Text style={styles.sublabel}>
+                住所を入力するとマップが移動します。ピンをタップで微調整できます。
+              </Text>
+              <View style={styles.mapWrapper}>
+                <MapAddressPicker
+                  pinPosition={departurePinPosition}
+                  onPinChange={handleDepartureChange}
+                />
+              </View>
+              {departureAddress ? (
+                <View style={styles.selectedAddressRow}>
+                  <Ionicons name="location" size={16} color={C.primary} />
+                  <Text style={styles.selectedAddressText} numberOfLines={2}>
+                    {departureAddress}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </>
         )}
@@ -536,6 +690,22 @@ export default function RegisterScreen() {
                   routineBelongings.map((item, i) => (
                     <View key={`rb-${i}`}>
                       <View style={styles.belongingRow}>
+                        <View style={styles.reorderButtons}>
+                          <TouchableOpacity
+                            onPress={() => moveRoutineBelonging(i, 'up')}
+                            disabled={i === 0}
+                            style={{ opacity: i === 0 ? 0.25 : 1 }}
+                          >
+                            <Ionicons name="chevron-up" size={18} color={C.textMuted} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => moveRoutineBelonging(i, 'down')}
+                            disabled={i === routineBelongings.length - 1}
+                            style={{ opacity: i === routineBelongings.length - 1 ? 0.25 : 1 }}
+                          >
+                            <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+                          </TouchableOpacity>
+                        </View>
                         <Text style={styles.belongingText}>{item}</Text>
                         <TouchableOpacity
                           onPress={() =>
@@ -612,7 +782,7 @@ export default function RegisterScreen() {
                 style={styles.modalButtonPrimary}
                 onPress={() => {
                   setShowModal(false);
-                  router.push('/schedule/create');
+                  router.push('/schedule/unit/create');
                 }}
               >
                 <Text style={styles.modalButtonPrimaryText}>スケジュール作成</Text>
@@ -685,14 +855,18 @@ const styles = StyleSheet.create({
   typeTextSelected: { color: C.white },
 
   // Belongings
-  belongingsCard: { backgroundColor: C.white, borderRadius: 7, padding: 14 },
+  belongingsCard: { backgroundColor: C.white, borderRadius: 7, paddingHorizontal: 14 },
   belongingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
+    gap: 8,
   },
-  belongingText: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
+  reorderButtons: {
+    alignItems: 'center',
+    gap: 0,
+  },
+  belongingText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
   belongingDivider: { height: 1, backgroundColor: C.border },
   addBelongingRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   addBelongingInput: {
@@ -707,7 +881,18 @@ const styles = StyleSheet.create({
   addBelongingButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addBelongingButtonText: { fontSize: 12.25, fontWeight: '500', color: C.primary },
 
-  // Departure
+  // Departure map
+  sublabel: { fontSize: 12.25, fontWeight: '400', color: C.textSecondary, marginBottom: 4 },
+  mapWrapper: { height: 200, borderRadius: 7, overflow: 'hidden', backgroundColor: C.border },
+  selectedAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: C.white,
+    padding: 12.25,
+    borderRadius: 7,
+  },
+  selectedAddressText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
   departureCard: {
     flexDirection: 'row',
     alignItems: 'center',
