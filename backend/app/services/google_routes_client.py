@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -84,10 +84,15 @@ async def search_routes_google(
         logger.exception("Google Routes API connection error")
         raise AppError("GOOGLE_ROUTES_ERROR", "Google Routes API is unavailable", 503) from None
 
-    return _parse_response(data, travel_mode)
+    return _parse_response(data, travel_mode, arrival_time=arrival_time, departure_time=departure_time)
 
 
-def _parse_response(data: dict, travel_mode: str) -> list[dict]:
+def _parse_response(
+    data: dict,
+    travel_mode: str,
+    arrival_time: str | None = None,
+    departure_time: str | None = None,
+) -> list[dict]:
     """Google Routes API v2 レスポンスを OTP2 互換の itinerary 形式に変換."""
     routes = data.get("routes", [])
     if not routes:
@@ -98,10 +103,21 @@ def _parse_response(data: dict, travel_mode: str) -> list[dict]:
         duration_str = route.get("duration", "0s")
         duration_seconds = _parse_duration(duration_str)
         duration_minutes = max(1, int(duration_seconds / 60))
+        delta = timedelta(seconds=duration_seconds)
 
-        now = datetime.now(UTC)
-        departure_time = now.isoformat()
-        arrival_time = now.isoformat()
+        # departure_time / arrival_time をリクエストパラメータと duration から計算
+        if departure_time:
+            dep = datetime.fromisoformat(departure_time)
+            arr = dep + delta
+        elif arrival_time:
+            arr = datetime.fromisoformat(arrival_time)
+            dep = arr - delta
+        else:
+            dep = datetime.now(UTC)
+            arr = dep + delta
+
+        dep_str = dep.isoformat()
+        arr_str = arr.isoformat()
 
         mode = "CAR" if travel_mode == "driving" else "WALK"
 
@@ -111,21 +127,35 @@ def _parse_response(data: dict, travel_mode: str) -> list[dict]:
             leg_duration_seconds = _parse_duration(leg_duration_str)
             leg_duration_minutes = max(1, int(leg_duration_seconds / 60))
 
+            # leg の from_name / to_name を座標から生成
+            start_loc = leg.get("startLocation", {}).get("latLng", {})
+            end_loc = leg.get("endLocation", {}).get("latLng", {})
+            from_name = (
+                f"{start_loc['latitude']:.4f}, {start_loc['longitude']:.4f}"
+                if start_loc.get("latitude") is not None
+                else "出発地"
+            )
+            to_name = (
+                f"{end_loc['latitude']:.4f}, {end_loc['longitude']:.4f}"
+                if end_loc.get("latitude") is not None
+                else "目的地"
+            )
+
             legs.append(
                 {
                     "mode": mode,
-                    "from_name": "出発地",
-                    "to_name": "目的地",
-                    "departure_time": departure_time,
-                    "arrival_time": arrival_time,
+                    "from_name": from_name,
+                    "to_name": to_name,
+                    "departure_time": dep_str,
+                    "arrival_time": arr_str,
                     "duration_minutes": leg_duration_minutes,
                 }
             )
 
         itineraries.append(
             {
-                "departure_time": departure_time,
-                "arrival_time": arrival_time,
+                "departure_time": dep_str,
+                "arrival_time": arr_str,
                 "duration_minutes": duration_minutes,
                 "legs": legs,
             }

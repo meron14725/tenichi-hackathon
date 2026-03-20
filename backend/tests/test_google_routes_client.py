@@ -52,6 +52,49 @@ class TestParseResponse:
         assert result[0]["legs"][0]["mode"] == "CAR"
         assert result[0]["legs"][0]["duration_minutes"] == 10
 
+    def test_times_from_departure(self):
+        """departure_time 指定時は duration から arrival_time を計算."""
+        data = {"routes": [{"duration": "600s", "legs": [{"duration": "600s"}]}]}
+        result = _parse_response(data, "driving", departure_time="2026-03-20T10:00:00+09:00")
+        assert result[0]["departure_time"] == "2026-03-20T10:00:00+09:00"
+        assert result[0]["arrival_time"] == "2026-03-20T10:10:00+09:00"
+        assert result[0]["legs"][0]["departure_time"] == "2026-03-20T10:00:00+09:00"
+        assert result[0]["legs"][0]["arrival_time"] == "2026-03-20T10:10:00+09:00"
+
+    def test_times_from_arrival(self):
+        """arrival_time 指定時は duration から departure_time を逆算."""
+        data = {"routes": [{"duration": "900s", "legs": [{"duration": "900s"}]}]}
+        result = _parse_response(data, "walking", arrival_time="2026-03-20T10:00:00+09:00")
+        assert result[0]["arrival_time"] == "2026-03-20T10:00:00+09:00"
+        assert result[0]["departure_time"] == "2026-03-20T09:45:00+09:00"
+
+    def test_from_to_names_from_coordinates(self):
+        """startLocation/endLocation から from_name/to_name を生成."""
+        data = {
+            "routes": [
+                {
+                    "duration": "600s",
+                    "legs": [
+                        {
+                            "duration": "600s",
+                            "startLocation": {"latLng": {"latitude": 35.6436, "longitude": 139.6699}},
+                            "endLocation": {"latLng": {"latitude": 35.6547, "longitude": 139.6977}},
+                        }
+                    ],
+                }
+            ]
+        }
+        result = _parse_response(data, "driving")
+        assert result[0]["legs"][0]["from_name"] == "35.6436, 139.6699"
+        assert result[0]["legs"][0]["to_name"] == "35.6547, 139.6977"
+
+    def test_from_to_names_fallback(self):
+        """座標がない場合は出発地/目的地にフォールバック."""
+        data = {"routes": [{"duration": "600s", "legs": [{"duration": "600s"}]}]}
+        result = _parse_response(data, "driving")
+        assert result[0]["legs"][0]["from_name"] == "出発地"
+        assert result[0]["legs"][0]["to_name"] == "目的地"
+
     def test_walking_mode(self):
         data = {
             "routes": [
