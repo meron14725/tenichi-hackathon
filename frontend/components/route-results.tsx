@@ -200,49 +200,56 @@ function ItineraryCard({ itinerary }: { itinerary: ItineraryResponse }) {
           </View>
         </View>
 
-        {itinerary.legs.map((leg, legIndex) => (
-          <React.Fragment key={legIndex}>
-            {/* Connector */}
-            <View style={styles.connector}>
-              {leg.mode === 'WALK' ? (
-                <View style={styles.connectorContent}>
-                  <MaterialCommunityIcons name="walk" size={14} color={C.textSecondary} />
-                  <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
-                </View>
-              ) : (
-                <View style={styles.connectorContent}>
-                  {leg.route_short_name && (
-                    <View
-                      style={[
-                        styles.lineBadge,
-                        {
-                          borderColor: getLineColor(leg.route_short_name),
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.lineBadgeText,
-                          { color: getLineColor(leg.route_short_name) },
-                        ]}
-                      >
-                        {leg.route_short_name}
-                      </Text>
+        {itinerary.legs.map((leg, legIndex) => {
+          // 最後のWALK legは目的地バッジ側で表示するのでスキップ
+          const isLastWalkLeg =
+            legIndex === itinerary.legs.length - 1 && leg.mode === 'WALK';
+          return (
+            <React.Fragment key={legIndex}>
+              {/* Connector (最後のWALK legは除く) */}
+              {!isLastWalkLeg && (
+                <View style={styles.connector}>
+                  {leg.mode === 'WALK' ? (
+                    <View style={styles.connectorContent}>
+                      <MaterialCommunityIcons name="walk" size={14} color={C.textSecondary} />
+                      <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.connectorContent}>
+                      {leg.route_short_name && (
+                        <View
+                          style={[
+                            styles.lineBadge,
+                            {
+                              borderColor: getLineColor(leg.route_short_name),
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.lineBadgeText,
+                              { color: getLineColor(leg.route_short_name) },
+                            ]}
+                          >
+                            {leg.route_short_name}
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
                     </View>
                   )}
-                  <Text style={styles.connectorText}>{leg.duration_minutes}分</Text>
                 </View>
               )}
-            </View>
 
-            {/* Station */}
-            {legIndex < itinerary.legs.length - 1 && (
-              <View style={styles.timelineStep}>
-                <Text style={styles.stationName}>{leg.to_name}</Text>
-              </View>
-            )}
-          </React.Fragment>
-        ))}
+              {/* Station */}
+              {legIndex < itinerary.legs.length - 1 && (
+                <View style={styles.timelineStep}>
+                  <Text style={styles.stationName}>{leg.to_name}</Text>
+                </View>
+              )}
+            </React.Fragment>
+          );
+        })}
 
         {/* Destination badge */}
         <View style={styles.timelineStep}>

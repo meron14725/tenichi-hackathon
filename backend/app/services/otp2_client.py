@@ -203,10 +203,20 @@ async def search_routes(
 
     itineraries = _parse_itineraries(data)
 
-    # transit検索時、徒歩のみのitineraryを除外する
-    # OTP2はtransitモードでも代替として徒歩ルートを返すことがある
-    if travel_mode == "transit":
-        itineraries = [it for it in itineraries if any(leg["mode"] != "WALK" for leg in it["legs"])]
+    # OTP2は指定モード以外のlegを含むルートを代替として返すことがある
+    # 各モードで許可されるleg modeのみ含むitineraryにフィルタする
+    _expected_modes: dict[str, set[str]] = {
+        "transit": {"WALK", "RAIL", "SUBWAY", "BUS"},
+        "walking": {"WALK"},
+        "cycling": {"BICYCLE", "WALK"},
+        "driving": {"CAR", "WALK"},
+    }
+    allowed = _expected_modes.get(travel_mode)
+    if allowed:
+        itineraries = [it for it in itineraries if all(leg["mode"] in allowed for leg in it["legs"])]
+        # transit: 徒歩のみルートも除外
+        if travel_mode == "transit":
+            itineraries = [it for it in itineraries if any(leg["mode"] != "WALK" for leg in it["legs"])]
 
     if not itineraries:
         raise AppError("ROUTE_NOT_FOUND", "No routes found for the specified conditions", 404)
