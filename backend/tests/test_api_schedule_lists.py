@@ -7,6 +7,11 @@ from tests.conftest import auth_headers
 SL_DATA = {
     "name": "出社の日",
     "date": "2026-03-10",
+    "category_id": 3,
+    "memo": "お店の予約をする！",
+    "departure_name": "自宅",
+    "departure_lat": 35.6584,
+    "departure_lng": 139.7015,
     "packing_items": [
         {"name": "折りたたみ傘", "sort_order": 1},
         {"name": "名刺", "sort_order": 2},
@@ -27,8 +32,29 @@ class TestCreateScheduleList:
         data = response.json()
         assert data["name"] == "出社の日"
         assert data["date"] == "2026-03-10"
+        assert data["category"]["id"] == 3
+        assert data["category"]["name"] == "仕事"
+        assert data["memo"] == "お店の予約をする！"
+        assert data["departure_name"] == "自宅"
+        assert float(data["departure_lat"]) == pytest.approx(35.6584, abs=1e-4)
+        assert float(data["departure_lng"]) == pytest.approx(139.7015, abs=1e-4)
         assert len(data["packing_items"]) == 2
         assert data["packing_items"][0]["name"] == "折りたたみ傘"
+
+    async def test_create_without_optional_fields(self, client):
+        headers = await auth_headers(client)
+        response = await client.post(
+            "/api/v1/schedule-lists",
+            headers=headers,
+            json={"name": "シンプルな予定", "date": "2026-03-11"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["category"] is None
+        assert data["memo"] is None
+        assert data["departure_name"] is None
+        assert data["departure_lat"] is None
+        assert data["departure_lng"] is None
 
     async def test_create_without_token(self, client):
         response = await client.post("/api/v1/schedule-lists", json=SL_DATA)
@@ -70,6 +96,21 @@ class TestUpdateScheduleList:
         response = await client.put(f"/api/v1/schedule-lists/{list_id}", headers=headers, json={"name": "在宅の日"})
         assert response.status_code == 200
         assert response.json()["name"] == "在宅の日"
+
+    async def test_update_new_fields(self, client):
+        headers = await auth_headers(client)
+        create_resp = await _create_list(client, headers)
+        list_id = create_resp.json()["id"]
+        response = await client.put(
+            f"/api/v1/schedule-lists/{list_id}",
+            headers=headers,
+            json={"memo": "更新メモ", "category_id": 1, "departure_name": "東京駅"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["memo"] == "更新メモ"
+        assert data["category"]["name"] == "休日"
+        assert data["departure_name"] == "東京駅"
 
 
 @pytest.mark.asyncio

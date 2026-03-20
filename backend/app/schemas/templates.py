@@ -3,14 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.schemas.schedule_lists import CategoryResponse
 from app.schemas.tags import TagResponse
-
-
-class TemplateCategoryResponse(BaseModel):
-    id: int
-    name: str
-
-    model_config = {"from_attributes": True}
 
 
 class TemplateScheduleResponse(BaseModel):
@@ -33,7 +27,11 @@ class TemplateScheduleResponse(BaseModel):
 class TemplateResponse(BaseModel):
     id: int
     name: str
-    category: TemplateCategoryResponse | None
+    category: CategoryResponse | None
+    memo: str | None
+    departure_name: str | None
+    departure_lat: Decimal | None
+    departure_lng: Decimal | None
     schedules: list[TemplateScheduleResponse]
     created_at: dt.datetime
     updated_at: dt.datetime
@@ -58,12 +56,20 @@ class TemplateScheduleCreate(BaseModel):
 class TemplateCreate(BaseModel):
     name: str
     category_id: int | None = None
+    memo: str | None = None
+    departure_name: str | None = None
+    departure_lat: Decimal | None = None
+    departure_lng: Decimal | None = None
     schedules: list[TemplateScheduleCreate] = []
 
 
 class TemplateUpdate(BaseModel):
     name: str | None = None
     category_id: int | None = None
+    memo: str | None = None
+    departure_name: str | None = None
+    departure_lat: Decimal | None = None
+    departure_lng: Decimal | None = None
     schedules: list[TemplateScheduleCreate] | None = None
 
 

@@ -11,7 +11,7 @@ from app.database import get_db
 from app.main import app
 from app.models.base import Base
 from app.models.tag import Tag
-from app.models.template import TemplateCategory
+from app.models.template import Category
 
 # テスト用 PostgreSQL（環境変数 or docker-compose のデフォルト）
 TEST_DATABASE_URL = os.environ.get(
@@ -34,8 +34,8 @@ async def setup_db():
     async with session_factory() as session:
         for name in ["仕事", "会食", "デート", "運動"]:
             session.add(Tag(name=name))
-        for name in ["仕事の日", "在宅勤務", "休日"]:
-            session.add(TemplateCategory(name=name))
+        for name in ["休日", "旅行", "仕事", "出張"]:
+            session.add(Category(name=name))
         await session.commit()
 
     # FastAPI の依存関係を上書き

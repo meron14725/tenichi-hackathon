@@ -17,7 +17,11 @@ from app.schemas.schedule_lists import (
 async def _get_owned_list(db: AsyncSession, user_id: int, list_id: int) -> ScheduleList:
     result = await db.execute(
         select(ScheduleList)
-        .options(selectinload(ScheduleList.schedules), selectinload(ScheduleList.packing_items))
+        .options(
+            selectinload(ScheduleList.category),
+            selectinload(ScheduleList.schedules),
+            selectinload(ScheduleList.packing_items),
+        )
         .where(ScheduleList.id == list_id, ScheduleList.user_id == user_id)
     )
     sl = result.scalar_one_or_none()
@@ -34,7 +38,11 @@ async def list_schedule_lists(
 ) -> list[ScheduleList]:
     stmt = (
         select(ScheduleList)
-        .options(selectinload(ScheduleList.schedules), selectinload(ScheduleList.packing_items))
+        .options(
+            selectinload(ScheduleList.category),
+            selectinload(ScheduleList.schedules),
+            selectinload(ScheduleList.packing_items),
+        )
         .where(ScheduleList.user_id == user_id)
         .order_by(ScheduleList.date)
     )
@@ -47,7 +55,16 @@ async def list_schedule_lists(
 
 
 async def create_schedule_list(db: AsyncSession, user_id: int, data: ScheduleListCreate) -> ScheduleList:
-    sl = ScheduleList(user_id=user_id, name=data.name, date=data.date)
+    sl = ScheduleList(
+        user_id=user_id,
+        name=data.name,
+        date=data.date,
+        category_id=data.category_id,
+        memo=data.memo,
+        departure_name=data.departure_name,
+        departure_lat=data.departure_lat,
+        departure_lng=data.departure_lng,
+    )
     db.add(sl)
     await db.flush()
 
@@ -69,6 +86,7 @@ async def update_schedule_list(db: AsyncSession, user_id: int, list_id: int, dat
     for key, value in update_data.items():
         setattr(sl, key, value)
     await db.commit()
+    db.expire(sl)
     return await _get_owned_list(db, user_id, list_id)
 
 
