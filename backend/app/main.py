@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.categories import router as categories_router
 from app.api.healthz import router as healthz_router
 from app.api.notifications import router as notifications_router
 from app.api.routes import router as routes_router
@@ -48,6 +49,7 @@ app.add_exception_handler(Exception, generic_error_handler)
 app.include_router(healthz_router)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
+app.include_router(categories_router, prefix="/api/v1")
 app.include_router(tags_router, prefix="/api/v1")
 app.include_router(schedules_router, prefix="/api/v1")
 app.include_router(schedule_lists_router, prefix="/api/v1")
