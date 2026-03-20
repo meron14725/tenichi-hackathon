@@ -335,7 +335,9 @@ export default function RegisterScreen() {
         setApiError('このメールアドレスは既に登録されています。');
       } else {
         const message =
-          err instanceof Error ? err.message : '予期せぬエラーが発生しました。しばらく待って再度試してください。';
+          err instanceof Error
+            ? err.message
+            : '予期せぬエラーが発生しました。しばらく待って再度試してください。';
         setApiError(message);
       }
     } finally {

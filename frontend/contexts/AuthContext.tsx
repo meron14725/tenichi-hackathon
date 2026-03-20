@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (delay <= 0) {
         // 既にリフレッシュすべきタイミングを過ぎている
-        refreshAccessToken().then((success) => {
+        refreshAccessToken().then(success => {
           if (!success) {
             setIsAuthenticated(false);
             authStorage.clearTokens();
