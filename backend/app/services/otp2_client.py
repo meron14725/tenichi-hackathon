@@ -164,7 +164,23 @@ async def search_routes(
     arrival_time: str | None = None,
     departure_time: str | None = None,
 ) -> list[dict]:
-    """OTP2 に経路検索リクエストを送信し、itineraries を返す."""
+    """経路検索リクエストを送信し、itineraries を返す.
+
+    driving/walking は Google Routes API v2、transit/cycling は OTP2 を使用。
+    """
+    if travel_mode in ("driving", "walking"):
+        from app.services.google_routes_client import search_routes_google
+
+        return await search_routes_google(
+            origin_lat,
+            origin_lon,
+            dest_lat,
+            dest_lon,
+            travel_mode,
+            arrival_time=arrival_time,
+            departure_time=departure_time,
+        )
+
     query = _build_query(
         origin_lat,
         origin_lon,
