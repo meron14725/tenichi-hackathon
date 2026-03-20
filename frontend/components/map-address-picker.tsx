@@ -58,10 +58,7 @@ if (Platform.OS === 'web') {
     return React.useContext(GeocoderContext);
   }
 
-  function MapContent({
-    pinPosition,
-    onPinChange,
-  }: MapAddressPickerProps) {
+  function MapContent({ pinPosition, onPinChange }: MapAddressPickerProps) {
     const map = useMap();
     const geocoder = useSharedGeocoder();
 
@@ -273,12 +270,16 @@ if (Platform.OS !== 'web') {
 
       geocoder = new google.maps.Geocoder();
 
-      ${pinPosition ? `
+      ${
+        pinPosition
+          ? `
       marker = new google.maps.marker.AdvancedMarkerElement({
         map: map,
         position: center,
       });
-      ` : ''}
+      `
+          : ''
+      }
 
       map.addListener('click', function(e) {
         const lat = e.latLng.lat();
