@@ -542,7 +542,10 @@ export default function ScheduleCreateScreen() {
       return { lat: list.departure_lat, lon: list.departure_lng };
     }
 
-    throw new Error('出発地を特定できませんでした。\n[実行ログ]\n' + logs.join('\n'));
+    const errorMsg = __DEV__
+      ? '出発地を特定できませんでした。\n[実行ログ]\n' + logs.join('\n')
+      : '出発地を特定できませんでした。';
+    throw new Error(errorMsg);
   }
 
   // Route search
@@ -601,7 +604,9 @@ export default function ScheduleCreateScreen() {
       logs.push(`APIリクエスト成功: ${result.itineraries.length}件のルート取得`);
       setRouteData(result);
     } catch (e: any) {
-      const errorMsg = `ルート取得エラー: ${e.message}\n\n[実行ログ]\n${logs.join('\n')}`;
+      const errorMsg = __DEV__
+        ? `ルート取得エラー: ${e.message}\n\n[実行ログ]\n${logs.join('\n')}`
+        : `ルート取得エラー: ${e.message}`;
       console.error(errorMsg);
       setRouteError(errorMsg);
     } finally {
