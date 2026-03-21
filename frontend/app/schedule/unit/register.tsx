@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +19,7 @@ import { scheduleApi } from '@/api/scheduleApi';
 import { routeApi, TravelMode, RouteSearchResponse } from '@/api/routeApi';
 import { userApi, UserSettingsResponse } from '@/api/userApi';
 import { useAuth } from '@/contexts/AuthContext';
+import TimePickerModal from '@/components/time-picker-modal';
 
 const C = {
   primary: '#436F9B',
@@ -50,196 +49,7 @@ const TRAVEL_MODES: { value: TravelMode; label: string; icon: string }[] = [
   { value: 'cycling', label: '自転車', icon: 'bicycle' },
 ];
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
-function TimePickerModal({
-  visible,
-  onSelect,
-  onClose,
-}: {
-  visible: boolean;
-  onSelect: (hour: number, minute: number) => void;
-  onClose: () => void;
-}) {
-  const [hour, setHour] = useState<number>(8);
-  const [minute, setMinute] = useState<number>(0);
-
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <Pressable style={timePickerStyles.backdrop} onPress={onClose}>
-        <Pressable onPress={e => e.stopPropagation()} style={timePickerStyles.card}>
-          <Text style={timePickerStyles.title}>到着時間を選択</Text>
-          <View style={timePickerStyles.pickerRow}>
-            {/* Hours */}
-            <View style={timePickerStyles.column}>
-              <Text style={timePickerStyles.columnLabel}>時</Text>
-              <ScrollView
-                style={timePickerStyles.scrollColumn}
-                showsVerticalScrollIndicator={false}
-              >
-                {HOURS.map(h => (
-                  <TouchableOpacity
-                    key={h}
-                    style={[timePickerStyles.cell, hour === h && timePickerStyles.cellSelected]}
-                    onPress={() => setHour(h)}
-                  >
-                    <Text
-                      style={[
-                        timePickerStyles.cellText,
-                        hour === h && timePickerStyles.cellTextSelected,
-                      ]}
-                    >
-                      {String(h).padStart(2, '0')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            <Text style={timePickerStyles.separator}>:</Text>
-
-            {/* Minutes */}
-            <View style={timePickerStyles.column}>
-              <Text style={timePickerStyles.columnLabel}>分</Text>
-              <ScrollView
-                style={timePickerStyles.scrollColumn}
-                showsVerticalScrollIndicator={false}
-              >
-                {MINUTES.map(m => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[timePickerStyles.cell, minute === m && timePickerStyles.cellSelected]}
-                    onPress={() => setMinute(m)}
-                  >
-                    <Text
-                      style={[
-                        timePickerStyles.cellText,
-                        minute === m && timePickerStyles.cellTextSelected,
-                      ]}
-                    >
-                      {String(m).padStart(2, '0')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-
-          <View style={timePickerStyles.buttons}>
-            <TouchableOpacity style={timePickerStyles.cancelButton} onPress={onClose}>
-              <Text style={timePickerStyles.cancelText}>キャンセル</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={timePickerStyles.confirmButton}
-              onPress={() => {
-                onSelect(hour, minute);
-                onClose();
-              }}
-            >
-              <Text style={timePickerStyles.confirmText}>決定</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-const timePickerStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-  },
-  card: {
-    backgroundColor: C.white,
-    borderRadius: 14,
-    padding: 24,
-    width: '100%',
-    gap: 16,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: C.textPrimary,
-    textAlign: 'center',
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  column: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  columnLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: C.textSecondary,
-  },
-  scrollColumn: {
-    height: 180,
-    width: 70,
-  },
-  cell: {
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 7,
-  },
-  cellSelected: {
-    backgroundColor: C.primary,
-  },
-  cellText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: C.textPrimary,
-  },
-  cellTextSelected: {
-    color: C.white,
-    fontWeight: '700',
-  },
-  separator: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: C.textPrimary,
-    marginTop: 24,
-  },
-  buttons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  cancelButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 7,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: C.textSecondary,
-  },
-  confirmButton: {
-    flex: 1,
-    backgroundColor: C.primary,
-    borderRadius: 7,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  confirmText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: C.white,
-  },
-});
 
 interface Destination {
   lat: number;
