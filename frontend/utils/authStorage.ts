@@ -4,6 +4,14 @@ import { TokenResponse } from '@/api/authApi';
 
 const TOKEN_KEY = 'tenichi_auth_tokens';
 
+/**
+ * [Security Consideration for Web]
+ * To prevent XSS attacks from stealing tokens, we use memory-based storage for the Web.
+ * Note: Tokens will be lost upon a full page reload on the Web.
+ * For Native, we continue using the secure hardware storage (SecureStore).
+ */
+let memoryTokens: (TokenResponse & { saved_at?: number }) | null = null;
+
 export const authStorage = {
   async saveTokens(tokens: TokenResponse): Promise<void> {
     try {
@@ -11,12 +19,11 @@ export const authStorage = {
         ...tokens,
         saved_at: Date.now(),
       };
-      const value = JSON.stringify(tokensWithMeta);
 
       if (Platform.OS === 'web') {
-        localStorage.setItem(TOKEN_KEY, value);
+        memoryTokens = tokensWithMeta;
       } else {
-        await SecureStore.setItemAsync(TOKEN_KEY, value);
+        await SecureStore.setItemAsync(TOKEN_KEY, JSON.stringify(tokensWithMeta));
       }
     } catch (error) {
       console.error('Error saving tokens:', error);
@@ -26,15 +33,13 @@ export const authStorage = {
 
   async getTokens(): Promise<(TokenResponse & { saved_at?: number }) | null> {
     try {
-      let tokensStr: string | null = null;
       if (Platform.OS === 'web') {
-        tokensStr = localStorage.getItem(TOKEN_KEY);
+        return memoryTokens;
       } else {
-        tokensStr = await SecureStore.getItemAsync(TOKEN_KEY);
-      }
-
-      if (tokensStr) {
-        return JSON.parse(tokensStr) as TokenResponse & { saved_at?: number };
+        const tokensStr = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (tokensStr) {
+          return JSON.parse(tokensStr) as TokenResponse & { saved_at?: number };
+        }
       }
     } catch (error) {
       console.error('Error getting tokens:', error);
@@ -45,7 +50,7 @@ export const authStorage = {
   async clearTokens(): Promise<void> {
     try {
       if (Platform.OS === 'web') {
-        localStorage.removeItem(TOKEN_KEY);
+        memoryTokens = null;
       } else {
         await SecureStore.deleteItemAsync(TOKEN_KEY);
       }
