@@ -781,7 +781,7 @@ export default function RegisterScreen() {
                 onPress={() => {
                   setShowModal(false);
                   router.push({
-                    pathname: '/schedule/unit/create',
+                    pathname: '/schedule/unit/register',
                     params: { schedule_list_id: String(createdScheduleListId) },
                   });
                 }}

@@ -1,19 +1,32 @@
 import { api } from '@/utils/apiClient';
 
-// バックエンドのレスポンスの型をここに定義します（例）
-export interface WeatherResponse {
-  temperature_high: number;
-  temperature_low: number;
+/**
+ * Weather API クライアント
+ * 特定の地点の天気予報情報を提供します。
+ */
+export interface WeatherLocation {
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+export interface WeatherForecastDay {
+  date: string;
+  avg_temp_c: number;
+  max_temp_c: number;
+  min_temp_c: number;
   condition: string;
+  condition_icon_url: string;
+  chance_of_rain: number;
+}
+
+export interface WeatherForecastResponse {
+  location: WeatherLocation;
+  forecast: WeatherForecastDay[];
 }
 
 export const weatherApi = {
-  /**
-   * 天気情報を取得するAPIの呼び出し例
-   */
-  getTodayWeather: async (): Promise<WeatherResponse> => {
-    // GETリクエストを送信
-    // 実際のバックエンドのエンドポイントに合わせて修正してください
-    return await api.get<WeatherResponse>('weather');
+  getForecast: async (lat: number, lon: number): Promise<WeatherForecastResponse> => {
+    return await api.get<WeatherForecastResponse>(`weather/forecast?lat=${lat}&lon=${lon}`);
   },
 };
