@@ -49,8 +49,6 @@ const TRAVEL_MODES: { value: TravelMode; label: string; icon: string }[] = [
   { value: 'cycling', label: '自転車', icon: 'bicycle' },
 ];
 
-
-
 interface Destination {
   lat: number;
   lon: number;
