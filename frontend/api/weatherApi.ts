@@ -1,5 +1,9 @@
 import { api } from '@/utils/apiClient';
 
+/**
+ * Weather API クライアント
+ * 特定の地点の天気予報情報を提供します。
+ */
 export interface WeatherLocation {
   name: string;
   lat: number;
