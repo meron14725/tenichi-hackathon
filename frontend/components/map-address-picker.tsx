@@ -18,7 +18,8 @@ const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 // ==================================================================
 type MapAddressPickerProps = {
   pinPosition: { lat: number; lng: number } | null;
-  onPinChange: (lat: number, lng: number, address: string) => void;
+  onPinChange: (lat: number, lng: number, address: string, name?: string) => void;
+  pinName?: string;
 };
 
 // ==================================================================
@@ -201,7 +202,11 @@ let NativeMapAddressPicker: React.ComponentType<MapAddressPickerProps> | null = 
 if (Platform.OS !== 'web') {
   const { WebView } = require('react-native-webview'); // eslint-disable-line
 
-  NativeMapAddressPicker = function NativeMap({ pinPosition, onPinChange }: MapAddressPickerProps) {
+  NativeMapAddressPicker = function NativeMap({
+    pinPosition,
+    onPinChange,
+    pinName,
+  }: MapAddressPickerProps) {
     const webViewRef = useRef<any>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -216,6 +221,13 @@ if (Platform.OS !== 'web') {
         `);
       }
     }, [pinPosition]);
+
+    // ピン名称が変わったら入力欄を更新
+    useEffect(() => {
+      if (pinName) {
+        setSearchQuery(pinName);
+      }
+    }, [pinName]);
 
     const handleSearch = useCallback(() => {
       if (!searchQuery.trim() || !webViewRef.current) return;
@@ -232,7 +244,7 @@ if (Platform.OS !== 'web') {
         try {
           const data = JSON.parse(event.nativeEvent.data);
           if (data.type === 'pinChange') {
-            onPinChange(data.lat, data.lng, data.address);
+            onPinChange(data.lat, data.lng, data.address, data.name);
           }
         } catch {
           // ignore
@@ -327,7 +339,7 @@ if (Platform.OS !== 'web') {
           const lng = loc.lng();
           window.updatePin(lat, lng);
           window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'pinChange', lat: lat, lng: lng, address: results[0].formatted_address
+            type: 'pinChange', lat: lat, lng: lng, address: results[0].formatted_address, name: query
           }));
         }
       });
@@ -389,14 +401,22 @@ const nativeStyles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   searchRow: {
+    position: 'absolute',
+    top: 8,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.white,
     paddingHorizontal: 10,
     height: 44,
     gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E8EAEC',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   searchInput: {
     flex: 1,
@@ -422,7 +442,11 @@ const nativeStyles = StyleSheet.create({
 // Web: @vis.gl/react-google-maps
 // Native (iOS/Android): react-native-webview + Google Maps JS API
 // ==================================================================
-export default function MapAddressPicker({ pinPosition, onPinChange }: MapAddressPickerProps) {
+export default function MapAddressPicker({
+  pinPosition,
+  onPinChange,
+  pinName,
+}: MapAddressPickerProps) {
   if (!GOOGLE_MAPS_API_KEY) {
     return (
       <View style={fallbackStyles.noMapContainer}>
@@ -436,11 +460,19 @@ export default function MapAddressPicker({ pinPosition, onPinChange }: MapAddres
   }
 
   if (Platform.OS === 'web' && WebMapAddressPicker) {
-    return <WebMapAddressPicker pinPosition={pinPosition} onPinChange={onPinChange} />;
+    return (
+      <WebMapAddressPicker pinPosition={pinPosition} onPinChange={onPinChange} pinName={pinName} />
+    );
   }
 
   if (Platform.OS !== 'web' && NativeMapAddressPicker) {
-    return <NativeMapAddressPicker pinPosition={pinPosition} onPinChange={onPinChange} />;
+    return (
+      <NativeMapAddressPicker
+        pinPosition={pinPosition}
+        onPinChange={onPinChange}
+        pinName={pinName}
+      />
+    );
   }
 
   return null;

@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import MapAddressPicker from '@/components/map-address-picker';
 import {
   APIProvider,
   Map,
@@ -39,6 +40,7 @@ interface SelectedPlace {
   lat: number;
   lng: number;
   name: string;
+  address: string;
 }
 
 function PlacesAutocomplete({ onSelect }: { onSelect: (place: SelectedPlace) => void }) {
@@ -83,21 +85,23 @@ function PlacesAutocomplete({ onSelect }: { onSelect: (place: SelectedPlace) => 
       if (!placesService.current) return;
 
       placesService.current.getDetails(
-        { placeId: prediction.place_id, fields: ['geometry', 'name'] },
+        { placeId: prediction.place_id, fields: ['geometry', 'name', 'formatted_address'] },
         place => {
           if (place?.geometry?.location) {
+            const searchName = query.trim();
             onSelect({
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
-              name: prediction.structured_formatting.main_text,
+              name: searchName || prediction.structured_formatting.main_text,
+              address: place.formatted_address || prediction.description,
             });
-            setQuery(prediction.structured_formatting.main_text);
+            setQuery(searchName || prediction.structured_formatting.main_text);
             setShowResults(false);
           }
         }
       );
     },
-    [onSelect]
+    [onSelect, query]
   );
 
   return (
@@ -245,14 +249,15 @@ function MapContent({
 
       if (geocoder.current) {
         geocoder.current.geocode({ location: { lat, lng } }, (results, status) => {
-          const name =
+          const address =
             status === 'OK' && results?.[0]
               ? results[0].formatted_address
               : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-          onSelect({ lat, lng, name });
+          onSelect({ lat, lng, name: address, address: address });
         });
       } else {
-        onSelect({ lat, lng, name: `${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+        const addr = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        onSelect({ lat, lng, name: addr, address: addr });
       }
     },
     [onSelect]
@@ -277,8 +282,48 @@ function MapContent({
 export default function DestinationPickerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
-  const [selected, setSelected] = useState<SelectedPlace | null>(null);
+  const params = useLocalSearchParams<{
+    returnTo?: string;
+    initial_lat?: string;
+    initial_lng?: string;
+    initial_name?: string;
+    initial_address?: string;
+    schedule_list_id?: string;
+    title?: string;
+    memo?: string;
+    selected_category_id?: string;
+    travel_mode?: string;
+    arrival_hour?: string;
+    arrival_minute?: string;
+    use_last_train?: string;
+  }>();
+  const {
+    returnTo,
+    initial_lat,
+    initial_lng,
+    initial_name,
+    initial_address,
+    schedule_list_id,
+    title,
+    memo,
+    selected_category_id,
+    travel_mode,
+    arrival_hour,
+    arrival_minute,
+    use_last_train,
+  } = params;
+
+  const [selected, setSelected] = useState<SelectedPlace | null>(() => {
+    if (initial_lat && initial_lng && initial_name) {
+      return {
+        lat: Number(initial_lat),
+        lng: Number(initial_lng),
+        name: initial_name,
+        address: initial_address || initial_name,
+      };
+    }
+    return null;
+  });
 
   const handleConfirm = () => {
     if (!selected) return;
@@ -299,6 +344,15 @@ export default function DestinationPickerScreen() {
           destination_lat: String(selected.lat),
           destination_lon: String(selected.lng),
           destination_name: selected.name,
+          destination_address: selected.address,
+          title,
+          memo,
+          selected_category_id,
+          travel_mode,
+          arrival_hour,
+          arrival_minute,
+          use_last_train,
+          ...(schedule_list_id ? { schedule_list_id } : {}),
         },
       });
     }
@@ -334,10 +388,20 @@ export default function DestinationPickerScreen() {
 
       {/* Map + Search */}
       <View style={styles.mapContainer}>
-        <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-          <MapContent selected={selected} onSelect={setSelected} />
-          <PlacesAutocomplete onSelect={setSelected} />
-        </APIProvider>
+        {Platform.OS === 'web' ? (
+          <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+            <MapContent selected={selected} onSelect={setSelected} />
+            <PlacesAutocomplete onSelect={setSelected} />
+          </APIProvider>
+        ) : (
+          <MapAddressPicker
+            pinPosition={selected ? { lat: selected.lat, lng: selected.lng } : null}
+            pinName={selected?.name}
+            onPinChange={(lat, lng, address, name) =>
+              setSelected({ lat, lng, name: name || address, address })
+            }
+          />
+        )}
       </View>
 
       {/* Bottom confirmation */}
@@ -346,7 +410,7 @@ export default function DestinationPickerScreen() {
           <View style={styles.selectedInfo}>
             <Ionicons name="location" size={20} color={C.primary} />
             <Text style={styles.selectedName} numberOfLines={1}>
-              {selected.name}
+              {selected.address}
             </Text>
           </View>
           <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
