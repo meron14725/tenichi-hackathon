@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { TokenResponse } from '@/api/authApi';
 
@@ -6,21 +7,32 @@ const TOKEN_KEY = 'tenichi_auth_tokens';
 export const authStorage = {
   async saveTokens(tokens: TokenResponse): Promise<void> {
     try {
-      // saved_at を追加して、後で有効期限を判定できるようにする
       const tokensWithMeta = {
         ...tokens,
         saved_at: Date.now(),
       };
-      await SecureStore.setItemAsync(TOKEN_KEY, JSON.stringify(tokensWithMeta));
+      const value = JSON.stringify(tokensWithMeta);
+
+      if (Platform.OS === 'web') {
+        localStorage.setItem(TOKEN_KEY, value);
+      } else {
+        await SecureStore.setItemAsync(TOKEN_KEY, value);
+      }
     } catch (error) {
       console.error('Error saving tokens:', error);
-      throw error; // 呼び出し元にエラーを伝播する
+      throw error;
     }
   },
 
   async getTokens(): Promise<(TokenResponse & { saved_at?: number }) | null> {
     try {
-      const tokensStr = await SecureStore.getItemAsync(TOKEN_KEY);
+      let tokensStr: string | null = null;
+      if (Platform.OS === 'web') {
+        tokensStr = localStorage.getItem(TOKEN_KEY);
+      } else {
+        tokensStr = await SecureStore.getItemAsync(TOKEN_KEY);
+      }
+
       if (tokensStr) {
         return JSON.parse(tokensStr) as TokenResponse & { saved_at?: number };
       }
@@ -32,7 +44,11 @@ export const authStorage = {
 
   async clearTokens(): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      if (Platform.OS === 'web') {
+        localStorage.removeItem(TOKEN_KEY);
+      } else {
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
+      }
     } catch (error) {
       console.error('Error clearing tokens:', error);
     }
