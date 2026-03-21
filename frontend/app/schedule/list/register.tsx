@@ -17,6 +17,7 @@ import MapAddressPicker from '@/components/map-address-picker';
 import { userApi } from '@/api/userApi';
 import { scheduleListApi } from '@/api/scheduleListApi';
 import { categoryApi, CategoryResponse } from '@/api/categoryApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 const C = {
   primary: '#436F9B',
@@ -335,6 +336,7 @@ export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ step?: string }>();
+  const { isAuthenticated } = useAuth();
 
   const [step, setStep] = useState<Step>((params.step as Step) || 'method');
   const [name, setName] = useState<string>('');
@@ -360,6 +362,8 @@ export default function RegisterScreen() {
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     async function initData() {
       try {
         const [settings, cats] = await Promise.all([
@@ -382,7 +386,7 @@ export default function RegisterScreen() {
       }
     }
     initData();
-  }, []);
+  }, [isAuthenticated]);
 
   const [showModal, setShowModal] = useState<boolean>(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine>(ROUTINES[0]);
@@ -390,6 +394,7 @@ export default function RegisterScreen() {
   const [routineBelongings, setRoutineBelongings] = useState<string[]>([]);
   const [newRoutineBelonging, setNewRoutineBelonging] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [createdScheduleListId, setCreatedScheduleListId] = useState<number | null>(null);
 
   async function handleSave() {
     setIsSaving(true);
@@ -414,7 +419,7 @@ export default function RegisterScreen() {
       const d = new Date();
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-      await scheduleListApi.create({
+      const result = await scheduleListApi.create({
         name: reqName,
         date: dateStr,
         category_id: selectedCategoryId,
@@ -425,6 +430,7 @@ export default function RegisterScreen() {
         packing_items: reqPacking,
       });
 
+      setCreatedScheduleListId(result.id);
       setShowModal(true);
     } catch (e) {
       console.error('Failed to create schedule-list:', e);
@@ -774,7 +780,10 @@ export default function RegisterScreen() {
                 style={styles.modalButtonPrimary}
                 onPress={() => {
                   setShowModal(false);
-                  router.push('/schedule/unit/create');
+                  router.push({
+                    pathname: '/schedule/unit/create',
+                    params: { schedule_list_id: String(createdScheduleListId) },
+                  });
                 }}
               >
                 <Text style={styles.modalButtonPrimaryText}>スケジュール作成</Text>
