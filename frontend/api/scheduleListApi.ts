@@ -50,11 +50,43 @@ export interface ScheduleListResponse {
   updated_at: string;
 }
 
+export interface PackingItemUpdate {
+  name?: string;
+  is_checked?: boolean;
+  sort_order?: number;
+}
+
 export const scheduleListApi = {
   create: async (data: ScheduleListCreateRequest): Promise<ScheduleListResponse> => {
     return await api.post<ScheduleListResponse>('schedule-lists', data);
   },
   getById: async (id: number): Promise<ScheduleListResponse> => {
     return await api.get<ScheduleListResponse>(`schedule-lists/${id}`);
+  },
+  list: async (params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<ScheduleListResponse[]> => {
+    let endpoint = 'schedule-lists';
+    if (params) {
+      const query = new URLSearchParams();
+      if (params.start_date) query.append('start_date', params.start_date);
+      if (params.end_date) query.append('end_date', params.end_date);
+      const queryString = query.toString();
+      if (queryString) {
+        endpoint += `?${queryString}`;
+      }
+    }
+    return await api.get<ScheduleListResponse[]>(endpoint);
+  },
+  updatePackingItem: async (
+    listId: number,
+    itemId: number,
+    data: PackingItemUpdate
+  ): Promise<PackingItemResponse> => {
+    return await api.put<PackingItemResponse>(
+      `schedule-lists/${listId}/packing-items/${itemId}`,
+      data
+    );
   },
 };

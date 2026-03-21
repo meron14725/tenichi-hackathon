@@ -411,6 +411,178 @@ export default function ScheduleCreateScreen() {
     }
   }, [isLastTrainEnabled, useLastTrain]);
 
+  function formatTime(time: { hour: number; minute: number } | null): string {
+    if (!time) return '-- : --';
+    return `${String(time.hour).padStart(2, '0')} : ${String(time.minute).padStart(2, '0')}`;
+  }
+
+  const getOrigin = React.useCallback(async (): Promise<{
+    lat: number;
+    lon: number;
+    name?: string;
+  }> => {
+    const logs: string[] = [];
+    const list = scheduleListRef.current;
+
+    if (!list) {
+      throw new Error(
+        `[エラー] scheduleListRefが空です。\n親画面から正しくデータが渡されていません。`
+      );
+    }
+
+    logs.push(`List ID: ${list.id}, 予定数: ${list.schedules.length}`);
+
+    if ((arrivalTime || useLastTrain) && list.schedules.length > 0) {
+      const now = new Date();
+      let refDate: Date;
+
+      if (useLastTrain) {
+        // 終電モードは翌日0:00を基準にする
+        refDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0);
+      } else {
+        refDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          arrivalTime!.hour,
+          arrivalTime!.minute
+        );
+      }
+
+      logs.push(`基準日時: ${refDate.toISOString()}`);
+
+      const earlierSchedules = list.schedules
+        .filter(s => s.end_at && new Date(s.end_at) < refDate)
+        .sort((a, b) => new Date(b.end_at!).getTime() - new Date(a.end_at!).getTime());
+
+      logs.push(`基準時間より過去の予定数: ${earlierSchedules.length}`);
+
+      if (earlierSchedules.length > 0) {
+        logs.push(`直前の予定ID: ${earlierSchedules[0].id} のAPI取得を試行`);
+        try {
+          const prevSchedule = await scheduleApi.getById(earlierSchedules[0].id);
+          logs.push(`直前予定取得完了 (dest_lat: ${prevSchedule.destination_lat})`);
+          if (prevSchedule.destination_lat != null && prevSchedule.destination_lon != null) {
+            return {
+              lat: Number(prevSchedule.destination_lat),
+              lon: Number(prevSchedule.destination_lon),
+              name: prevSchedule.destination_name || '前の予定',
+            };
+          } else {
+            logs.push('直前予定の目的地が設定されていません');
+          }
+        } catch (error: any) {
+          logs.push(`直前予定API取得失敗: ${error.message}`);
+          console.error('Failed to fetch previous schedule details:', error);
+        }
+      }
+    } else {
+      logs.push(`基準時間未設定、または予定が0件です`);
+    }
+
+    logs.push(`リストに登録された大元の出発地(lat): ${list.departure_lat}`);
+    if (list.departure_lat != null && list.departure_lng != null) {
+      return {
+        lat: list.departure_lat,
+        lon: list.departure_lng,
+        name: list.departure_name || '出発地',
+      };
+    }
+
+    const errorMsg = __DEV__
+      ? '出発地を特定できませんでした。\n[実行ログ]\n' + logs.join('\n')
+      : '出発地を特定できませんでした。';
+    throw new Error(errorMsg);
+  }, [arrivalTime, useLastTrain]);
+
+  // Route search
+  const handleSearchRoutes = React.useCallback(async () => {
+    if (!destination || (!arrivalTime && !useLastTrain)) return;
+
+    const logs: string[] = [];
+    setRouteLoading(true);
+    setRouteError(null);
+    setRouteData(null);
+    setSelectedItineraryIndex(null);
+
+    let origin: { lat: number; lon: number; name?: string };
+    try {
+      origin = await getOrigin();
+      logs.push(`出発地特定: ${origin.lat}, ${origin.lon}`);
+    } catch (e: any) {
+      setRouteLoading(false);
+      setRouteError(`出発地特定エラー:\n${e.message}`);
+      return;
+    }
+
+    const now = new Date();
+    let arrivalDate: Date;
+
+    if (useLastTrain) {
+      // 翌日の午前1時を目標にする（実質的に終電検索となる）
+      arrivalDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 1, 0);
+      logs.push(`終電モード: 翌日1:00 (${arrivalDate.toISOString()})`);
+    } else {
+      arrivalDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        arrivalTime!.hour,
+        arrivalTime!.minute
+      );
+      logs.push(`通常モード: ${arrivalDate.toISOString()}`);
+    }
+
+    logs.push(`目的地: ${destination!.lat}, ${destination!.lon} (${destination!.name})`);
+    logs.push(`移動手段: ${travelMode}`);
+
+    try {
+      const searchParams = {
+        origin_lat: origin!.lat,
+        origin_lon: origin!.lon,
+        destination_lat: destination!.lat,
+        destination_lon: destination!.lon,
+        travel_mode: travelMode,
+        arrival_time: arrivalDate.toISOString(),
+      };
+      logs.push(`APIリクエスト開始: ${JSON.stringify(searchParams)}`);
+
+      const result = await routeApi.search(searchParams);
+      logs.push(`APIリクエスト成功: ${result.itineraries.length}件のルート取得`);
+
+      // 出発地・目的地の名前があれば反映する
+      if (origin.name || destination?.name) {
+        result.itineraries.forEach(itinerary => {
+          if (itinerary.legs && itinerary.legs.length > 0) {
+            if (origin.name) {
+              itinerary.legs[0].from_name = origin.name;
+            }
+            if (destination?.name) {
+              itinerary.legs[itinerary.legs.length - 1].to_name = destination.name;
+            }
+          }
+        });
+      }
+
+      setRouteData(result);
+    } catch (e: any) {
+      const errorMsg = __DEV__
+        ? `ルート取得エラー: ${e.message}\n\n[実行ログ]\n${logs.join('\n')}`
+        : `ルート取得エラー: ${e.message}`;
+      console.error(errorMsg);
+      setRouteError(errorMsg);
+    } finally {
+      setRouteLoading(false);
+    }
+  }, [destination, arrivalTime, useLastTrain, travelMode, getOrigin]);
+
+  // 終電選択時に自動検索
+  useEffect(() => {
+    if (useLastTrain && destination) {
+      handleSearchRoutes();
+    }
+  }, [useLastTrain, destination, handleSearchRoutes]);
+
   async function handleAdd() {
     if (!scheduleListId || !title.trim()) return;
 
@@ -471,146 +643,27 @@ export default function ScheduleCreateScreen() {
         });
       }
 
-      router.push({
-        pathname: '/schedule/list',
-        params: { schedule_list_id: scheduleListId.toString() },
-      });
+      // 遷移先の決定
+      const list = scheduleListRef.current;
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const today = `${yyyy}-${mm}-${dd}`;
+
+      if (list && list.date === today) {
+        // 当日ならホームへ
+        router.push('/(tabs)');
+      } else {
+        // 当日以外ならスケジュール詳細へ
+        router.push({
+          pathname: '/schedule/list',
+          params: { schedule_list_id: scheduleListId.toString() },
+        });
+      }
     } catch (error: any) {
       console.error('Failed to create schedule:', error);
       Alert.alert('エラー', '予定の登録に失敗しました: ' + (error.message || ''));
-    }
-  }
-
-  function formatTime(time: { hour: number; minute: number } | null): string {
-    if (!time) return '-- : --';
-    return `${String(time.hour).padStart(2, '0')} : ${String(time.minute).padStart(2, '0')}`;
-  }
-
-  async function getOrigin(): Promise<{ lat: number; lon: number }> {
-    const logs: string[] = [];
-    const list = scheduleListRef.current;
-
-    if (!list) {
-      throw new Error(
-        `[エラー] scheduleListRefが空です。\n親画面から正しくデータが渡されていません。`
-      );
-    }
-
-    logs.push(`List ID: ${list.id}, 予定数: ${list.schedules.length}`);
-
-    if (arrivalTime && list.schedules.length > 0) {
-      const now = new Date();
-      const arrivalDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        arrivalTime.hour,
-        arrivalTime.minute
-      );
-      logs.push(`到着設定日時: ${arrivalDate.toISOString()}`);
-
-      const earlierSchedules = list.schedules
-        .filter(s => s.end_at && new Date(s.end_at) < arrivalDate)
-        .sort((a, b) => new Date(b.end_at!).getTime() - new Date(a.end_at!).getTime());
-
-      logs.push(`到着時間より過去の予定数: ${earlierSchedules.length}`);
-
-      if (earlierSchedules.length > 0) {
-        logs.push(`直前の予定ID: ${earlierSchedules[0].id} のAPI取得を試行`);
-        try {
-          const prevSchedule = await scheduleApi.getById(earlierSchedules[0].id);
-          logs.push(`直前予定取得完了 (dest_lat: ${prevSchedule.destination_lat})`);
-          if (prevSchedule.destination_lat != null && prevSchedule.destination_lon != null) {
-            return {
-              lat: Number(prevSchedule.destination_lat),
-              lon: Number(prevSchedule.destination_lon),
-            };
-          } else {
-            logs.push('直前予定の目的地が設定されていません');
-          }
-        } catch (error: any) {
-          logs.push(`直前予定API取得失敗: ${error.message}`);
-          console.error('Failed to fetch previous schedule details:', error);
-        }
-      }
-    } else {
-      logs.push(`到着時間未設定、または予定が0件です`);
-    }
-
-    logs.push(`リストに登録された大元の出発地(lat): ${list.departure_lat}`);
-    if (list.departure_lat != null && list.departure_lng != null) {
-      return { lat: list.departure_lat, lon: list.departure_lng };
-    }
-
-    const errorMsg = __DEV__
-      ? '出発地を特定できませんでした。\n[実行ログ]\n' + logs.join('\n')
-      : '出発地を特定できませんでした。';
-    throw new Error(errorMsg);
-  }
-
-  // Route search
-  async function handleSearchRoutes() {
-    if (!destination || (!arrivalTime && !useLastTrain)) return;
-
-    const logs: string[] = [];
-    setRouteLoading(true);
-    setRouteError(null);
-    setRouteData(null);
-    setSelectedItineraryIndex(null);
-
-    let origin: { lat: number; lon: number };
-    try {
-      origin = await getOrigin();
-      logs.push(`出発地特定: ${origin.lat}, ${origin.lon}`);
-    } catch (e: any) {
-      setRouteLoading(false);
-      setRouteError(`出発地特定エラー:\n${e.message}`);
-      return;
-    }
-
-    const now = new Date();
-    let arrivalDate: Date;
-
-    if (useLastTrain) {
-      // 翌日の午前0時を目標にする（実質的に終電検索となる）
-      arrivalDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0);
-      logs.push(`終電モード: 翌日0:00 (${arrivalDate.toISOString()})`);
-    } else {
-      arrivalDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        arrivalTime!.hour,
-        arrivalTime!.minute
-      );
-      logs.push(`通常モード: ${arrivalDate.toISOString()}`);
-    }
-
-    logs.push(`目的地: ${destination!.lat}, ${destination!.lon} (${destination!.name})`);
-    logs.push(`移動手段: ${travelMode}`);
-
-    try {
-      const searchParams = {
-        origin_lat: origin!.lat,
-        origin_lon: origin!.lon,
-        destination_lat: destination!.lat,
-        destination_lon: destination!.lon,
-        travel_mode: travelMode,
-        arrival_time: arrivalDate.toISOString(),
-      };
-      logs.push(`APIリクエスト開始: ${JSON.stringify(searchParams)}`);
-
-      const result = await routeApi.search(searchParams);
-      logs.push(`APIリクエスト成功: ${result.itineraries.length}件のルート取得`);
-      setRouteData(result);
-    } catch (e: any) {
-      const errorMsg = __DEV__
-        ? `ルート取得エラー: ${e.message}\n\n[実行ログ]\n${logs.join('\n')}`
-        : `ルート取得エラー: ${e.message}`;
-      console.error(errorMsg);
-      setRouteError(errorMsg);
-    } finally {
-      setRouteLoading(false);
     }
   }
 

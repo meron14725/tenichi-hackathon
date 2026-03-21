@@ -40,7 +40,7 @@ export default function ScheduleIndexScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mainContent}>
-          <TodoCard />
+          <TodoCard todos={[]} />
 
           {/* Weather + Train */}
           <View style={styles.infoRow}>
@@ -78,7 +78,7 @@ export default function ScheduleIndexScreen() {
             <Text style={styles.ctaText}>スケジュールを追加しよう！</Text>
             <TouchableOpacity
               style={styles.registerButton}
-              onPress={() => router.push('/schedule/unit/create')}
+              onPress={() => router.push('/schedule/unit/register')}
             >
               <Ionicons name="add" size={20} color={C.white} />
               <Text style={styles.registerButtonText}>スケジュール追加</Text>

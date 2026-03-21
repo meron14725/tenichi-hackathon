@@ -339,7 +339,7 @@ export default function DestinationPickerScreen() {
       });
     } else {
       router.navigate({
-        pathname: '/schedule/unit/create',
+        pathname: '/schedule/unit/register',
         params: {
           destination_lat: String(selected.lat),
           destination_lon: String(selected.lng),

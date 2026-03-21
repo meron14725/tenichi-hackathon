@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-type TodoItem = {
+export interface TodoItem {
   id: number;
   label: string;
   checked: boolean;
-};
+}
 
-const INITIAL_TODOS: TodoItem[] = [
-  { id: 1, label: 'MTGの準備', checked: true },
-  { id: 2, label: 'スーパーで買い物', checked: false },
-];
+interface TodoCardProps {
+  todos: TodoItem[];
+  onToggle?: (id: number) => void;
+}
 
 const C = {
   headerBg: '#436F9B',
@@ -23,13 +23,7 @@ const C = {
   badgeBg: '#A86A78',
 };
 
-export default function TodoCard(): React.JSX.Element {
-  const [todos, setTodos] = useState<TodoItem[]>(INITIAL_TODOS);
-
-  function toggleTodo(id: number): void {
-    setTodos(prev => prev.map(t => (t.id === id ? { ...t, checked: !t.checked } : t)));
-  }
-
+export default function TodoCard({ todos, onToggle }: TodoCardProps): React.JSX.Element {
   const remainingCount = todos.filter(t => !t.checked).length;
 
   return (
@@ -40,21 +34,29 @@ export default function TodoCard(): React.JSX.Element {
           <Text style={styles.headerText}>今日やること！</Text>
         </View>
         <View style={styles.body}>
-          {todos.map((todo, index) => (
-            <React.Fragment key={todo.id}>
-              {index > 0 && <View style={styles.dashedDivider} />}
-              <TouchableOpacity style={styles.row} onPress={() => toggleTodo(todo.id)}>
-                {todo.checked ? (
-                  <View style={styles.checkedBox}>
-                    <Ionicons name="checkmark" size={13} color={C.white} />
-                  </View>
-                ) : (
-                  <View style={styles.uncheckedBox} />
-                )}
-                <Text style={todo.checked ? styles.checkedText : styles.text}>{todo.label}</Text>
-              </TouchableOpacity>
-            </React.Fragment>
-          ))}
+          {todos.length === 0 ? (
+            <Text style={styles.emptyText}>登録されている持ち物はありません</Text>
+          ) : (
+            todos.map((todo, index) => (
+              <React.Fragment key={todo.id}>
+                {index > 0 && <View style={styles.dashedDivider} />}
+                <TouchableOpacity
+                  style={styles.row}
+                  onPress={() => onToggle && onToggle(todo.id)}
+                  activeOpacity={0.7}
+                >
+                  {todo.checked ? (
+                    <View style={styles.checkedBox}>
+                      <Ionicons name="checkmark" size={13} color={C.white} />
+                    </View>
+                  ) : (
+                    <View style={styles.uncheckedBox} />
+                  )}
+                  <Text style={todo.checked ? styles.checkedText : styles.text}>{todo.label}</Text>
+                </TouchableOpacity>
+              </React.Fragment>
+            ))
+          )}
         </View>
       </View>
       {remainingCount > 0 && (
@@ -69,12 +71,14 @@ export default function TodoCard(): React.JSX.Element {
 const styles = StyleSheet.create({
   wrapper: {
     position: 'relative',
+    zIndex: 10,
   },
   card: {
     borderWidth: 2,
     borderColor: C.todoBorder,
     borderRadius: 14,
     overflow: 'hidden',
+    backgroundColor: C.white,
   },
   header: {
     flexDirection: 'row',
@@ -130,8 +134,8 @@ const styles = StyleSheet.create({
   },
   remainingBadge: {
     position: 'absolute',
-    right: 0,
-    bottom: -12,
+    right: 14,
+    top: -12,
     backgroundColor: C.badgeBg,
     borderRadius: 7,
     paddingHorizontal: 10,
@@ -147,5 +151,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.5,
     borderBottomColor: C.todoBorder,
     borderStyle: 'dashed',
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: C.textMuted,
+    textAlign: 'center',
   },
 });
