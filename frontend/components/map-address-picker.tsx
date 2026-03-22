@@ -110,12 +110,20 @@ if (Platform.OS === 'web') {
 
   function AddressGeocoder({
     onGeocode,
+    initialQuery,
   }: {
-    onGeocode: (lat: number, lng: number, address: string) => void;
+    onGeocode: (lat: number, lng: number, address: string, name?: string) => void;
+    initialQuery?: string;
   }) {
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useState(initialQuery || '');
     const geocoder = useSharedGeocoder();
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+      if (initialQuery) {
+        setQuery(initialQuery);
+      }
+    }, [initialQuery]);
 
     const handleChangeText = useCallback(
       (text: string) => {
@@ -127,7 +135,7 @@ if (Platform.OS === 'web') {
           geocoder?.geocode({ address: text, region: 'jp' }, (results, status) => {
             if (status === 'OK' && results?.[0]?.geometry?.location) {
               const loc = results[0].geometry.location;
-              onGeocode(loc.lat(), loc.lng(), results[0].formatted_address);
+              onGeocode(loc.lat(), loc.lng(), results[0].formatted_address, text);
             }
           });
         }, 800);
@@ -179,13 +187,17 @@ if (Platform.OS === 'web') {
     },
   });
 
-  WebMapAddressPicker = function WebMap({ pinPosition, onPinChange }: MapAddressPickerProps) {
+  WebMapAddressPicker = function WebMap({
+    pinPosition,
+    onPinChange,
+    pinName,
+  }: MapAddressPickerProps) {
     return (
       <View style={{ width: '100%', height: '100%' }}>
         <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
           <GeocoderProvider>
             <MapContent pinPosition={pinPosition} onPinChange={onPinChange} />
-            <AddressGeocoder onGeocode={onPinChange} />
+            <AddressGeocoder onGeocode={onPinChange} initialQuery={pinName} />
           </GeocoderProvider>
         </APIProvider>
       </View>

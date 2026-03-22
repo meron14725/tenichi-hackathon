@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Animated,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -335,7 +337,7 @@ const pickerStyles = StyleSheet.create({
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const params = useLocalSearchParams<{ step?: string }>();
+  const params = useLocalSearchParams<{ step?: string; date?: string }>();
   const { isAuthenticated } = useAuth();
 
   const [step, setStep] = useState<Step>((params.step as Step) || 'method');
@@ -347,6 +349,7 @@ export default function RegisterScreen() {
   const [newBelonging, setNewBelonging] = useState<string>('');
 
   const [departureAddress, setDepartureAddress] = useState<string>('');
+  const [departureName, setDepartureName] = useState<string>('');
   const [departureLat, setDepartureLat] = useState<number | null>(null);
   const [departureLng, setDepartureLng] = useState<number | null>(null);
 
@@ -355,11 +358,15 @@ export default function RegisterScreen() {
       ? { lat: departureLat, lng: departureLng }
       : null;
 
-  const handleDepartureChange = useCallback((lat: number, lng: number, address: string) => {
-    setDepartureLat(lat);
-    setDepartureLng(lng);
-    setDepartureAddress(address);
-  }, []);
+  const handleDepartureChange = useCallback(
+    (lat: number, lng: number, address: string, name?: string) => {
+      setDepartureLat(lat);
+      setDepartureLng(lng);
+      setDepartureAddress(address);
+      if (name) setDepartureName(name);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -373,6 +380,7 @@ export default function RegisterScreen() {
 
         if (settings.home_address) {
           setDepartureAddress(settings.home_address);
+          setDepartureName('自宅');
           setDepartureLat(settings.home_lat);
           setDepartureLng(settings.home_lon);
         }
@@ -417,14 +425,15 @@ export default function RegisterScreen() {
       }
 
       const d = new Date();
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const dateStr = params.date || todayStr;
 
       const result = await scheduleListApi.create({
         name: reqName,
         date: dateStr,
         category_id: selectedCategoryId,
         memo: reqMemo,
-        departure_name: departureAddress || null,
+        departure_name: departureName || departureAddress || null,
         departure_lat: departureLat,
         departure_lng: departureLng,
         packing_items: reqPacking,
@@ -503,249 +512,268 @@ export default function RegisterScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack}>
-          <Ionicons name="chevron-back" size={24} color={C.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>予定を登録</Text>
-        <TouchableOpacity onPress={canSave && !isSaving ? handleSave : undefined}>
-          <Text style={[styles.saveText, (!canSave || isSaving) && { opacity: 0.3 }]}>保存</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        {/* Registration method */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>登録方法</Text>
-            <Ionicons name="help-circle-outline" size={17.5} color={C.textSecondary} />
-          </View>
-          <View style={styles.methodRow}>
-            <TouchableOpacity
-              style={[styles.methodCard, step === 'form' && styles.methodCardSelected]}
-              onPress={() => setStep('form')}
-            >
-              <Ionicons name="calendar-outline" size={28} color={C.textPrimary} />
-              <Text style={styles.methodText}>新しく登録</Text>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack}>
+              <Ionicons name="chevron-back" size={24} color={C.textPrimary} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.methodCard, step === 'routine' && styles.methodCardRoutineSelected]}
-              onPress={() => setStep('routine')}
-            >
-              <MaterialCommunityIcons
-                name="arrow-u-left-top"
-                size={28}
-                color={step === 'routine' ? C.textPrimary : C.textPrimary}
-              />
-              <Text style={[styles.methodText, step === 'routine' && { fontWeight: '700' }]}>
-                ルーティンで登録
+            <Text style={styles.headerTitle}>予定を登録</Text>
+            <TouchableOpacity onPress={canSave && !isSaving ? handleSave : undefined}>
+              <Text style={[styles.saveText, (!canSave || isSaving) && { opacity: 0.3 }]}>
+                保存
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* New registration form */}
-        {step === 'form' && (
-          <>
-            <View style={styles.formCard}>
-              <Text style={styles.formLabel}>予定のタイトル</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="友達と一日遊ぶ日"
-                placeholderTextColor={C.placeholder}
-                value={name}
-                onChangeText={setName}
-              />
-            </View>
-
-            <View style={styles.formCard}>
-              <Text style={styles.formLabel}>一言メモ</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="お店の予約をする！"
-                placeholderTextColor={C.placeholder}
-                value={memo}
-                onChangeText={setMemo}
-              />
-            </View>
-
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Registration method */}
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>予定の種類</Text>
-              <View style={styles.typeRow}>
-                {categories.map(cat => {
-                  const isSelected = selectedCategoryId === cat.id;
-                  const iconInfo = getCategoryIcon(cat.name);
-                  const catColor = getCategoryColor(cat.id);
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.typeButton,
-                        isSelected && { backgroundColor: catColor, borderColor: catColor },
-                      ]}
-                      onPress={() => setSelectedCategoryId(cat.id)}
-                    >
-                      {renderCategoryIcon(iconInfo, isSelected ? C.white : catColor)}
-                      <Text style={[styles.typeText, isSelected && styles.typeTextSelected]}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionLabel}>登録方法</Text>
+                <Ionicons name="help-circle-outline" size={17.5} color={C.textSecondary} />
               </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>持ち物</Text>
-              <View style={styles.belongingsCard}>
-                {belongings.map((item, i) => (
-                  <View key={`${item}-${i}`}>
-                    <View style={styles.belongingRow}>
-                      <View style={styles.reorderButtons}>
-                        <TouchableOpacity
-                          onPress={() => moveBelonging(i, 'up')}
-                          disabled={i === 0}
-                          style={{ opacity: i === 0 ? 0.25 : 1 }}
-                        >
-                          <Ionicons name="chevron-up" size={18} color={C.textMuted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => moveBelonging(i, 'down')}
-                          disabled={i === belongings.length - 1}
-                          style={{ opacity: i === belongings.length - 1 ? 0.25 : 1 }}
-                        >
-                          <Ionicons name="chevron-down" size={18} color={C.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.belongingText}>{item}</Text>
-                      <TouchableOpacity onPress={() => removeBelonging(i)}>
-                        <Ionicons name="remove-circle" size={22} color="#E57373" />
-                      </TouchableOpacity>
-                    </View>
-                    {i < belongings.length - 1 && <View style={styles.belongingDivider} />}
-                  </View>
-                ))}
-              </View>
-              <View style={styles.addBelongingRow}>
-                <TextInput
-                  style={styles.addBelongingInput}
-                  placeholder="持ち物を入力"
-                  placeholderTextColor={C.placeholder}
-                  value={newBelonging}
-                  onChangeText={setNewBelonging}
-                  onSubmitEditing={addBelonging}
-                />
-                <TouchableOpacity style={styles.addBelongingButton} onPress={addBelonging}>
-                  <Ionicons name="add" size={16} color={C.primary} />
-                  <Text style={styles.addBelongingButtonText}>持ち物を追加</Text>
+              <View style={styles.methodRow}>
+                <TouchableOpacity
+                  style={[styles.methodCard, step === 'form' && styles.methodCardSelected]}
+                  onPress={() => setStep('form')}
+                >
+                  <Ionicons name="calendar-outline" size={28} color={C.textPrimary} />
+                  <Text style={styles.methodText}>新しく登録</Text>
                 </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>出発地</Text>
-              <Text style={styles.sublabel}>
-                住所を入力するとマップが移動します。ピンをタップで微調整できます。
-              </Text>
-              <View style={styles.mapWrapper}>
-                <MapAddressPicker
-                  pinPosition={departurePinPosition}
-                  onPinChange={handleDepartureChange}
-                />
-              </View>
-              {departureAddress ? (
-                <View style={styles.selectedAddressRow}>
-                  <Ionicons name="location" size={16} color={C.primary} />
-                  <Text style={styles.selectedAddressText} numberOfLines={2}>
-                    {departureAddress}
+                <TouchableOpacity
+                  style={[
+                    styles.methodCard,
+                    step === 'routine' && styles.methodCardRoutineSelected,
+                  ]}
+                  onPress={() => setStep('routine')}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-u-left-top"
+                    size={28}
+                    color={step === 'routine' ? C.textPrimary : C.textPrimary}
+                  />
+                  <Text style={[styles.methodText, step === 'routine' && { fontWeight: '700' }]}>
+                    ルーティンで登録
                   </Text>
-                </View>
-              ) : null}
-            </View>
-          </>
-        )}
-
-        {/* Routine registration */}
-        {step === 'routine' && (
-          <>
-            {/* Selected routine */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>ルーティン</Text>
-              <TouchableOpacity
-                style={styles.selectedRoutineCard}
-                onPress={() => setShowRoutinePicker(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.selectedRoutineInner}>
-                  <View style={styles.selectedRoutineRow}>
-                    <Ionicons name="briefcase-outline" size={21} color={C.accent} />
-                    <Text style={styles.selectedRoutineTitle}>{selectedRoutine.title}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={21} color={C.textMuted} />
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Belongings for routine */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>持ち物</Text>
-              <View style={styles.belongingsCard}>
-                {routineBelongings.map((item, i) => (
-                  <View key={`rb-${i}`}>
-                    <View style={styles.belongingRow}>
-                      <View style={styles.reorderButtons}>
-                        <TouchableOpacity
-                          onPress={() => moveRoutineBelonging(i, 'up')}
-                          disabled={i === 0}
-                          style={{ opacity: i === 0 ? 0.25 : 1 }}
-                        >
-                          <Ionicons name="chevron-up" size={18} color={C.textMuted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => moveRoutineBelonging(i, 'down')}
-                          disabled={i === routineBelongings.length - 1}
-                          style={{ opacity: i === routineBelongings.length - 1 ? 0.25 : 1 }}
-                        >
-                          <Ionicons name="chevron-down" size={18} color={C.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.belongingText}>{item}</Text>
-                      <TouchableOpacity
-                        onPress={() =>
-                          setRoutineBelongings(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                      >
-                        <Ionicons name="remove-circle" size={22} color="#E57373" />
-                      </TouchableOpacity>
-                    </View>
-                    {i < routineBelongings.length - 1 && <View style={styles.belongingDivider} />}
-                  </View>
-                ))}
-              </View>
-              <View style={styles.addBelongingRow}>
-                <TextInput
-                  style={styles.addBelongingInput}
-                  placeholder="例：名刺"
-                  placeholderTextColor={C.placeholder}
-                  value={newRoutineBelonging}
-                  onChangeText={setNewRoutineBelonging}
-                  onSubmitEditing={addRoutineBelonging}
-                />
-                <TouchableOpacity style={styles.addBelongingButton} onPress={addRoutineBelonging}>
-                  <Ionicons name="add" size={16} color={C.primary} />
-                  <Text style={styles.addBelongingButtonText}>持ち物を追加</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </>
-        )}
-      </ScrollView>
+
+            {/* New registration form */}
+            {step === 'form' && (
+              <>
+                <View style={styles.formCard}>
+                  <Text style={styles.formLabel}>予定のタイトル</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="友達と一日遊ぶ日"
+                    placeholderTextColor={C.placeholder}
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
+
+                <View style={styles.formCard}>
+                  <Text style={styles.formLabel}>一言メモ</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="お店の予約をする！"
+                    placeholderTextColor={C.placeholder}
+                    value={memo}
+                    onChangeText={setMemo}
+                  />
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>予定の種類</Text>
+                  <View style={styles.typeRow}>
+                    {categories.map(cat => {
+                      const isSelected = selectedCategoryId === cat.id;
+                      const iconInfo = getCategoryIcon(cat.name);
+                      const catColor = getCategoryColor(cat.id);
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={[
+                            styles.typeButton,
+                            isSelected && { backgroundColor: catColor, borderColor: catColor },
+                          ]}
+                          onPress={() => setSelectedCategoryId(cat.id)}
+                        >
+                          {renderCategoryIcon(iconInfo, isSelected ? C.white : catColor)}
+                          <Text style={[styles.typeText, isSelected && styles.typeTextSelected]}>
+                            {cat.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>持ち物</Text>
+                  <View style={styles.belongingsCard}>
+                    {belongings.map((item, i) => (
+                      <View key={`${item}-${i}`}>
+                        <View style={styles.belongingRow}>
+                          <View style={styles.reorderButtons}>
+                            <TouchableOpacity
+                              onPress={() => moveBelonging(i, 'up')}
+                              disabled={i === 0}
+                              style={{ opacity: i === 0 ? 0.25 : 1 }}
+                            >
+                              <Ionicons name="chevron-up" size={18} color={C.textMuted} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => moveBelonging(i, 'down')}
+                              disabled={i === belongings.length - 1}
+                              style={{ opacity: i === belongings.length - 1 ? 0.25 : 1 }}
+                            >
+                              <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={styles.belongingText}>{item}</Text>
+                          <TouchableOpacity onPress={() => removeBelonging(i)}>
+                            <Ionicons name="remove-circle" size={22} color="#E57373" />
+                          </TouchableOpacity>
+                        </View>
+                        {i < belongings.length - 1 && <View style={styles.belongingDivider} />}
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.addBelongingRow}>
+                    <TextInput
+                      style={styles.addBelongingInput}
+                      placeholder="持ち物を入力"
+                      placeholderTextColor={C.placeholder}
+                      value={newBelonging}
+                      onChangeText={setNewBelonging}
+                      onSubmitEditing={addBelonging}
+                    />
+                    <TouchableOpacity style={styles.addBelongingButton} onPress={addBelonging}>
+                      <Ionicons name="add" size={16} color={C.primary} />
+                      <Text style={styles.addBelongingButtonText}>持ち物を追加</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>出発地</Text>
+                  <Text style={styles.sublabel}>
+                    住所を入力するとマップが移動します。ピンをタップで微調整できます。
+                  </Text>
+                  <View style={styles.mapWrapper}>
+                    <MapAddressPicker
+                      pinPosition={departurePinPosition}
+                      onPinChange={handleDepartureChange}
+                      pinName={departureName}
+                    />
+                  </View>
+                  {departureAddress ? (
+                    <View style={styles.selectedAddressRow}>
+                      <Ionicons name="location" size={16} color={C.primary} />
+                      <Text style={styles.selectedAddressText} numberOfLines={2}>
+                        {departureAddress}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </>
+            )}
+
+            {/* Routine registration */}
+            {step === 'routine' && (
+              <>
+                {/* Selected routine */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>ルーティン</Text>
+                  <TouchableOpacity
+                    style={styles.selectedRoutineCard}
+                    onPress={() => setShowRoutinePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.selectedRoutineInner}>
+                      <View style={styles.selectedRoutineRow}>
+                        <Ionicons name="briefcase-outline" size={21} color={C.accent} />
+                        <Text style={styles.selectedRoutineTitle}>{selectedRoutine.title}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={21} color={C.textMuted} />
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Belongings for routine */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>持ち物</Text>
+                  <View style={styles.belongingsCard}>
+                    {routineBelongings.map((item, i) => (
+                      <View key={`rb-${i}`}>
+                        <View style={styles.belongingRow}>
+                          <View style={styles.reorderButtons}>
+                            <TouchableOpacity
+                              onPress={() => moveRoutineBelonging(i, 'up')}
+                              disabled={i === 0}
+                              style={{ opacity: i === 0 ? 0.25 : 1 }}
+                            >
+                              <Ionicons name="chevron-up" size={18} color={C.textMuted} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => moveRoutineBelonging(i, 'down')}
+                              disabled={i === routineBelongings.length - 1}
+                              style={{ opacity: i === routineBelongings.length - 1 ? 0.25 : 1 }}
+                            >
+                              <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={styles.belongingText}>{item}</Text>
+                          <TouchableOpacity
+                            onPress={() =>
+                              setRoutineBelongings(prev => prev.filter((_, idx) => idx !== i))
+                            }
+                          >
+                            <Ionicons name="remove-circle" size={22} color="#E57373" />
+                          </TouchableOpacity>
+                        </View>
+                        {i < routineBelongings.length - 1 && (
+                          <View style={styles.belongingDivider} />
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.addBelongingRow}>
+                    <TextInput
+                      style={styles.addBelongingInput}
+                      placeholder="例：名刺"
+                      placeholderTextColor={C.placeholder}
+                      value={newRoutineBelonging}
+                      onChangeText={setNewRoutineBelonging}
+                      onSubmitEditing={addRoutineBelonging}
+                    />
+                    <TouchableOpacity
+                      style={styles.addBelongingButton}
+                      onPress={addRoutineBelonging}
+                    >
+                      <Ionicons name="add" size={16} color={C.primary} />
+                      <Text style={styles.addBelongingButtonText}>持ち物を追加</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
 
       {/* Routine Picker Modal */}
       <RoutinePickerModal
@@ -792,7 +820,7 @@ export default function RegisterScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </>
   );
 }
 

@@ -89,4 +89,13 @@ export const scheduleListApi = {
       data
     );
   },
+  update: async (
+    id: number,
+    data: Partial<ScheduleListCreateRequest>
+  ): Promise<ScheduleListResponse> => {
+    return await api.put<ScheduleListResponse>(`schedule-lists/${id}`, data);
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`schedule-lists/${id}`);
+  },
 };
