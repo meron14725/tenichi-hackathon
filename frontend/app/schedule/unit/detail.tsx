@@ -172,7 +172,7 @@ export default function ScheduleDetailScreen() {
             mode === 'RAIL' || mode === 'SUBWAY' || mode === 'TRANSIT' || mode === 'BUS'
               ? leg.route_long_name || leg.route_short_name || leg.agency_name
               : undefined,
-          lineColor: C.accent,
+          lineColor: leg.route_color || C.accent,
           walk: mode === 'WALK' ? `${leg.duration_minutes}分` : undefined,
           past: false,
           iconName: modeIcon as any,

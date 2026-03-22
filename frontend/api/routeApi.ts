@@ -22,6 +22,8 @@ export interface LegResponse {
   route_long_name?: string;
   agency_name?: string;
   headsign?: string;
+  transit_line_id?: number;
+  route_color?: string;
 }
 
 export interface ItineraryResponse {

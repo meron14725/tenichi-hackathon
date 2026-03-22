@@ -54,6 +54,8 @@ class LegResponse(BaseModel):
     route_long_name: str | None = None
     agency_name: str | None = None
     headsign: str | None = None
+    transit_line_id: int | None = None
+    route_color: str | None = None
 
 
 class ItineraryResponse(BaseModel):

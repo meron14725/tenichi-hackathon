@@ -13,6 +13,7 @@ from app.api.schedules import router as schedules_router
 from app.api.suggestions import router as suggestions_router
 from app.api.tags import router as tags_router
 from app.api.templates import router as templates_router
+from app.api.transit_lines import router as transit_lines_router
 from app.api.transit_status import router as transit_status_router
 from app.api.users import router as users_router
 from app.api.weather import router as weather_router
@@ -59,5 +60,6 @@ app.include_router(weather_router, prefix="/api/v1")
 app.include_router(routes_router, prefix="/api/v1")
 app.include_router(schedule_routes_router, prefix="/api/v1")
 app.include_router(suggestions_router, prefix="/api/v1")
+app.include_router(transit_lines_router, prefix="/api/v1")
 app.include_router(transit_status_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
