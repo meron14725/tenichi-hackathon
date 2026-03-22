@@ -48,7 +48,6 @@ export default function ScheduleIndexScreen() {
   const fetchData = useCallback(async () => {
     if (!id) return;
     try {
-      setLoading(true);
       const [settings, listData] = await Promise.all([
         userApi.getSettings(),
         scheduleListApi.getById(Number(id)),

@@ -79,7 +79,6 @@ export default function ScheduleDetailScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const scheduleData = await scheduleApi.getById(scheduleId);
       setSchedule(scheduleData);
 
