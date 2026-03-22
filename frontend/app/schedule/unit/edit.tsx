@@ -25,7 +25,6 @@ import { AppColors as C } from '@/constants/app-colors';
 import { getScheduleCategoryIcon } from '@/utils/schedule-helper';
 import TimePickerModal from '@/components/time-picker-modal';
 
-
 const TRAVEL_MODES: { value: TravelMode; label: string; icon: string }[] = [
   { value: 'transit', label: '電車', icon: 'train' },
   { value: 'driving', label: '車', icon: 'car' },

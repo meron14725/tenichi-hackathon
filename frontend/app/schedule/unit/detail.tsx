@@ -27,7 +27,6 @@ import { getWeatherIcon, getWeatherAdvice } from '@/utils/weather-helper';
 
 const owlAvatar = require('@/assets/images/owl-avatar.png');
 
-
 export default function ScheduleDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -216,7 +215,9 @@ export default function ScheduleDetailScreen() {
   }
 
   const categoryTag = schedule.tags.length > 0 ? schedule.tags[0] : null;
-  const categoryIconName = categoryTag ? getScheduleCategoryIcon(categoryTag.name) : 'label-outline';
+  const categoryIconName = categoryTag
+    ? getScheduleCategoryIcon(categoryTag.name)
+    : 'label-outline';
   const categoryBg = categoryTag ? getScheduleCategoryColor(categoryTag.name) : C.eventGreen;
 
   // Aggregate weather for the card
