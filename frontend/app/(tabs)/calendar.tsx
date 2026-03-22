@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { scheduleListApi, ScheduleListResponse } from '@/api/scheduleListApi';
 
 const C = {
   primary: '#436F9B',
@@ -13,50 +21,124 @@ const C = {
   white: '#FFFFFF',
   border: '#EEF0F1',
   black: '#000000',
+  // Registration Screen Colors
+  holiday: '#D1AEB6',
+  travel: '#D6C093',
+  work: '#C1D3D0',
+  business: '#9284C2',
 };
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-// Mock events: day -> label
-const EVENTS: Record<number, string> = {
-  3: '仕事の日',
-  10: '休日',
-  17: '仕事の日',
-  25: '出張',
+type CategoryUI = {
+  color: string;
+  icon: string;
+  iconSet: 'ionicons' | 'fa5' | 'mci';
 };
+
+const CATEGORY_UI_MAP: Record<string, CategoryUI> = {
+  休日: { color: C.holiday, icon: 'bicycle', iconSet: 'ionicons' },
+  旅行: { color: C.travel, icon: 'suitcase-rolling', iconSet: 'fa5' },
+  仕事: { color: C.work, icon: 'briefcase-outline', iconSet: 'mci' },
+  出張: { color: C.business, icon: 'briefcase', iconSet: 'fa5' },
+};
+
+function getCategoryUI(name?: string): CategoryUI {
+  const defaultUI: CategoryUI = { color: C.accent, icon: 'bookmark-outline', iconSet: 'ionicons' };
+  if (!name) return defaultUI;
+  return CATEGORY_UI_MAP[name] || defaultUI;
+}
+
+function renderCategoryIcon(
+  iconInfo: { icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' },
+  color: string,
+  size: number = 10
+) {
+  if (iconInfo.iconSet === 'ionicons')
+    return <Ionicons name={iconInfo.icon as any} size={size} color={color} />;
+  if (iconInfo.iconSet === 'fa5')
+    return <FontAwesome5 name={iconInfo.icon} size={size} color={color} />;
+  return <MaterialCommunityIcons name={iconInfo.icon as any} size={size} color={color} />;
+}
 
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
-  const days: { day: number; currentMonth: boolean }[] = [];
+  const days: { day: number; currentMonth: boolean; date: Date }[] = [];
 
   // Previous month trailing days
   for (let i = firstDay - 1; i >= 0; i--) {
-    days.push({ day: daysInPrevMonth - i, currentMonth: false });
+    days.push({
+      day: daysInPrevMonth - i,
+      currentMonth: false,
+      date: new Date(year, month, -i),
+    });
   }
 
   // Current month
   for (let i = 1; i <= daysInMonth; i++) {
-    days.push({ day: i, currentMonth: true });
+    days.push({
+      day: i,
+      currentMonth: true,
+      date: new Date(year, month, i),
+    });
   }
 
   // Next month leading days (fill to 6 rows)
   const remaining = 42 - days.length;
   for (let i = 1; i <= remaining; i++) {
-    days.push({ day: i, currentMonth: false });
+    days.push({
+      day: i,
+      currentMonth: false,
+      date: new Date(year, month + 1, i),
+    });
   }
 
   return days;
 }
 
+function formatLocalDate(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [selectedDay, setSelectedDay] = useState(3);
-  const year = 2025;
-  const month = 2; // March (0-indexed)
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [events, setEvents] = useState<Record<string, ScheduleListResponse>>({});
+  const [loading, setLoading] = useState(false);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const fetchSchedules = useCallback(async () => {
+    setLoading(true);
+    try {
+      const start = formatLocalDate(new Date(year, month, 1));
+      const end = formatLocalDate(new Date(year, month + 1, 0));
+      const data = await scheduleListApi.list({ start_date: start, end_date: end });
+
+      const mapped: Record<string, ScheduleListResponse> = {};
+      data.forEach(item => {
+        // API returns YYYY-MM-DD
+        mapped[item.date] = item;
+      });
+      setEvents(mapped);
+    } catch (error) {
+      console.error('Failed to fetch schedules:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [year, month]);
+
+  useEffect(() => {
+    fetchSchedules();
+  }, [fetchSchedules]);
 
   const days = getCalendarDays(year, month);
   const weeks: (typeof days)[] = [];
@@ -64,14 +146,31 @@ export default function CalendarScreen() {
     weeks.push(days.slice(i, i + 7));
   }
 
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity style={styles.monthSelector}>
-          <Text style={styles.monthText}>3月</Text>
-          <Ionicons name="caret-down" size={12} color={C.textPrimary} />
-        </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={handlePrevMonth} style={styles.navButton}>
+            <Ionicons name="chevron-back" size={24} color={C.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.monthLabel}>
+            <Text style={styles.monthText}>
+              {year}年 {month + 1}月
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleNextMonth} style={styles.navButton}>
+            <Ionicons name="chevron-forward" size={24} color={C.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -79,6 +178,10 @@ export default function CalendarScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {loading && (
+          <ActivityIndicator size="small" color={C.primary} style={{ marginBottom: 10 }} />
+        )}
+
         {/* Weekday headers */}
         <View style={styles.weekdayRow}>
           {WEEKDAYS.map(d => (
@@ -92,53 +195,66 @@ export default function CalendarScreen() {
         {weeks.map((week, wi) => (
           <View key={wi} style={styles.weekRow}>
             {week.map((item, di) => {
-              const isSelected = item.currentMonth && item.day === selectedDay;
-              const event = item.currentMonth ? EVENTS[item.day] : undefined;
+              const dateStr = formatLocalDate(item.date);
+              const event = events[dateStr];
+              const isToday = formatLocalDate(new Date()) === dateStr;
 
               return (
                 <TouchableOpacity
                   key={`${wi}-${di}`}
                   style={styles.dayCell}
                   onPress={() => {
-                    if (item.currentMonth) {
-                      setSelectedDay(item.day);
-                      if (EVENTS[item.day]) {
-                        router.push('/schedule/list');
-                      } else {
-                        router.push('/schedule/list/register');
-                      }
+                    if (event) {
+                      router.push({
+                        pathname: '/schedule/list',
+                        params: { id: event.id },
+                      });
+                    } else if (item.currentMonth) {
+                      // 新規登録へ
+                      router.push({
+                        pathname: '/schedule/list/register',
+                        params: { date: dateStr },
+                      });
                     }
                   }}
                   activeOpacity={item.currentMonth ? 0.6 : 1}
                 >
-                  {isSelected ? (
-                    <View style={styles.selectedCircle}>
-                      <Text style={styles.selectedDayText}>{item.day}</Text>
-                    </View>
-                  ) : (
-                    <Text style={[styles.dayText, !item.currentMonth && styles.dayTextMuted]}>
+                  <View style={[styles.dayNumberContainer, isToday && styles.todayCircle]}>
+                    <Text
+                      style={[
+                        styles.dayText,
+                        !item.currentMonth && styles.dayTextMuted,
+                        isToday && styles.todayText,
+                      ]}
+                    >
                       {item.day}
                     </Text>
-                  )}
-                  {event && (
-                    <View style={styles.eventBadge}>
-                      <Text style={styles.eventBadgeText}>{event}</Text>
-                    </View>
-                  )}
+                  </View>
+                  {event &&
+                    (() => {
+                      const ui = getCategoryUI(event.category?.name);
+                      return (
+                        <View style={[styles.eventBadge, { backgroundColor: ui.color }]}>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 2,
+                            }}
+                          >
+                            {renderCategoryIcon(ui, C.white, 8)}
+                            <Text style={styles.eventBadgeText}>{event.name}</Text>
+                          </View>
+                        </View>
+                      );
+                    })()}
                 </TouchableOpacity>
               );
             })}
           </View>
         ))}
       </ScrollView>
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 100 + insets.bottom }]}
-        onPress={() => router.push('/schedule/list/select-method')}
-      >
-        <Ionicons name="add" size={28} color={C.white} />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -153,16 +269,22 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: C.white,
     paddingHorizontal: 12.25,
-    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     justifyContent: 'center',
     minHeight: 56,
   },
-  monthSelector: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3.5,
+    justifyContent: 'space-between',
+  },
+  navButton: {
+    padding: 8,
+  },
+  monthLabel: {
+    flex: 1,
+    alignItems: 'center',
   },
   monthText: {
     fontSize: 17.5,
@@ -182,7 +304,6 @@ const styles = StyleSheet.create({
   // Weekday header
   weekdayRow: {
     flexDirection: 'row',
-    gap: 3.5,
   },
   weekdayCell: {
     flex: 1,
@@ -198,69 +319,50 @@ const styles = StyleSheet.create({
   // Calendar grid
   weekRow: {
     flexDirection: 'row',
-    gap: 3.5,
     marginTop: 12.25,
   },
   dayCell: {
     flex: 1,
     alignItems: 'center',
-    gap: 3.5,
-    paddingVertical: 3.5,
+    gap: 4,
+    minHeight: 60,
+  },
+  dayNumberContainer: {
+    width: 24.5,
+    height: 24.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dayText: {
     fontSize: 14,
     fontWeight: '500',
     color: C.textPrimary,
     textAlign: 'center',
-    width: 24.5,
-    lineHeight: 24.5,
   },
   dayTextMuted: {
     color: C.textMuted,
   },
-  selectedCircle: {
-    width: 24.5,
-    height: 24.5,
+  todayCircle: {
     borderRadius: 12.25,
     backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  selectedDayText: {
-    fontSize: 14,
-    fontWeight: '500',
+  todayText: {
     color: C.white,
-    textAlign: 'center',
+    fontWeight: '700',
   },
 
   // Event badge
   eventBadge: {
-    backgroundColor: C.accent,
-    borderRadius: 5.25,
+    borderRadius: 4,
     paddingHorizontal: 4,
-    paddingVertical: 1.875,
+    paddingVertical: 2,
+    width: '90%',
     alignSelf: 'center',
   },
   eventBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '500',
+    fontSize: 9,
+    fontWeight: '700',
     color: C.white,
-  },
-
-  // FAB
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.24,
-    shadowRadius: 10,
-    elevation: 5,
+    textAlign: 'center',
   },
 });
