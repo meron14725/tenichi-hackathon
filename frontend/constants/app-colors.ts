@@ -16,12 +16,17 @@ export const AppColors = {
   fabBg: '#436F9B',
   warmText: '#AA8A5E',
   adviceBorder: '#A8C0DD',
+  holidayAccent: '#A86A78',
+  stepConnector: '#C2A070',
   border: '#EEF0F1',
+  bg: '#EEF0F1',
+  placeholder: '#98A6AE',
   // Category specific (from Calendar)
   holiday: '#D1AEB6',
   travel: '#D6C093',
   work: '#C1D3D0',
   business: '#9284C2',
+  danger: '#FF3B30',
 };
 
 export const WEEKDAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];

@@ -15,6 +15,17 @@ export function buildTimelineItems(
 ): TimelineItem[] {
   const timelineItems: TimelineItem[] = [];
   const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const isToday = scheduleList ? scheduleList.date === todayStr : false;
+  const isFutureDay = scheduleList ? scheduleList.date > todayStr : false;
+  const isPastDay = scheduleList ? scheduleList.date < todayStr : false;
+
+  const isPast = (timeStr: string) => {
+    if (isFutureDay) return false;
+    if (isPastDay) return true;
+    if (!isToday) return false; // Default should not happen but be safe
+    return new Date(timeStr) < now;
+  };
 
   const appendStation = (name: string) => {
     if (!name) return '';
@@ -36,14 +47,14 @@ export function buildTimelineItems(
         time: formatTime(wakeTime.toISOString()),
         title: '起床',
         iconName: 'weather-sunny',
-        past: wakeTime < now,
+        past: isPast(wakeTime.toISOString()),
       });
       timelineItems.push({
         time: '',
         title: '朝の準備',
         walk: `${userSettings.preparation_minutes}分`,
         iconName: 'moped',
-        past: wakeTime < now,
+        past: isPast(wakeTime.toISOString()),
       });
     }
   }
@@ -102,7 +113,7 @@ export function buildTimelineItems(
             : undefined,
           lineColor: '#6E8F8A',
           walk: mode === 'WALK' ? `${leg.duration_minutes}分` : undefined,
-          past: new Date(leg.departure_time) < now,
+          past: isPast(leg.departure_time),
           iconName: modeIcon,
           weather: originKey ? weatherMap[originKey] : undefined,
         });
@@ -112,7 +123,7 @@ export function buildTimelineItems(
             time: formatTime(leg.arrival_time),
             title: s.title,
             subtitle: s.destination_name || s.memo || undefined,
-            past: new Date(leg.arrival_time) < now,
+            past: isPast(leg.arrival_time),
             hasChevron: true,
             iconBg: C.eventGreen,
             scheduleId: s.id,
@@ -128,7 +139,7 @@ export function buildTimelineItems(
         time: formatTime(s.start_at),
         title: s.title,
         subtitle: s.destination_name || s.memo || undefined,
-        past: new Date(s.start_at) < now,
+        past: isPast(s.start_at),
         hasChevron: true,
         iconBg: C.eventGreen,
         scheduleId: s.id,

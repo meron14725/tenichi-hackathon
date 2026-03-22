@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,29 +21,9 @@ import { scheduleApi } from '@/api/scheduleApi';
 import { routeApi, TravelMode, RouteSearchResponse } from '@/api/routeApi';
 import { userApi, UserSettingsResponse } from '@/api/userApi';
 import { useAuth } from '@/contexts/AuthContext';
+import { AppColors as C } from '@/constants/app-colors';
+import { getScheduleCategoryIcon } from '@/utils/schedule-helper';
 import TimePickerModal from '@/components/time-picker-modal';
-
-const C = {
-  primary: '#436F9B',
-  accent: '#6E8F8A',
-  bg: '#EEF0F1',
-  white: '#FFFFFF',
-  textPrimary: '#1F2528',
-  textSecondary: '#63747E',
-  textMuted: '#B5BFC5',
-  black: '#000000',
-  border: '#EEF0F1',
-  placeholder: '#98A6AE',
-  danger: '#FF3B30',
-};
-
-function getCategoryIcon(name: string): string {
-  if (name.includes('遊')) return 'run-fast';
-  if (name.includes('食')) return 'hamburger';
-  if (name.includes('仕事')) return 'account-group-outline';
-  if (name.includes('帰')) return 'exit-run';
-  return 'label-outline';
-}
 
 const TRAVEL_MODES: { value: TravelMode; label: string; icon: string }[] = [
   { value: 'transit', label: '電車', icon: 'train' },
@@ -79,6 +61,7 @@ export default function ScheduleEditScreen() {
   const scheduleId = Number(params.schedule_id);
   const scheduleListId = params.schedule_list_id ? Number(params.schedule_list_id) : null;
   const scheduleListRef = useRef<ScheduleListResponse | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const { isAuthenticated } = useAuth();
 
@@ -340,19 +323,16 @@ export default function ScheduleEditScreen() {
       return;
     }
 
-    const now = new Date();
+    const list = scheduleListRef.current;
+    if (!list) return;
+
+    const [y, m_str, d_str] = list.date.split('-').map(Number);
     let arrivalDate: Date;
 
     if (useLastTrain) {
-      arrivalDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 1, 0);
+      arrivalDate = new Date(y, m_str - 1, d_str + 1, 1, 0);
     } else {
-      arrivalDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        arrivalTime!.hour,
-        arrivalTime!.minute
-      );
+      arrivalDate = new Date(y, m_str - 1, d_str, arrivalTime!.hour, arrivalTime!.minute);
     }
 
     try {
@@ -395,18 +375,15 @@ export default function ScheduleEditScreen() {
   async function handleUpdate() {
     if (!scheduleId || !title.trim()) return;
 
-    let start_at = new Date().toISOString();
-    let end_at = new Date().toISOString();
+    const list = scheduleListRef.current;
+    if (!list) return;
+
+    const [y, m_str, d_str] = list.date.split('-').map(Number);
+    let start_at = new Date(y, m_str - 1, d_str).toISOString();
+    let end_at = new Date(y, m_str - 1, d_str).toISOString();
 
     if (arrivalTime) {
-      const now = new Date();
-      const arrivalDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        arrivalTime.hour,
-        arrivalTime.minute
-      );
+      const arrivalDate = new Date(y, m_str - 1, d_str, arrivalTime.hour, arrivalTime.minute);
       end_at = arrivalDate.toISOString();
       start_at = end_at;
     }
@@ -487,6 +464,16 @@ export default function ScheduleEditScreen() {
     return m > 0 ? `${h}時間${m}分` : `${h}時間`;
   }
 
+  function getLegIcon(mode: string): { name: string; color: string } {
+    const m = mode.toLowerCase();
+    if (m.includes('walk')) return { name: 'walk', color: C.textSecondary };
+    if (m.includes('rail') || m.includes('train') || m.includes('subway') || m.includes('transit'))
+      return { name: 'train', color: C.primary };
+    if (m.includes('bus')) return { name: 'bus', color: '#FF9500' };
+    if (m.includes('bike') || m.includes('cycling')) return { name: 'bike', color: '#4CD964' };
+    return { name: 'dots-horizontal', color: C.textMuted };
+  }
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -496,327 +483,491 @@ export default function ScheduleEditScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={C.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>スケジュール編集</Text>
-        <TouchableOpacity onPress={canUpdate ? handleUpdate : undefined}>
-          <Text style={[styles.addText, !canUpdate && { opacity: 0.3 }]}>保存</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Title */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>タイトル</Text>
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="例：打ち合わせ"
-              value={title}
-              onChangeText={setTitle}
-            />
+    <>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={16} color={C.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>スケジュール編集</Text>
+            <TouchableOpacity onPress={canUpdate ? handleUpdate : undefined}>
+              <Text style={[styles.addText, !canUpdate && { opacity: 0.3 }]}>保存</Text>
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Tags */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>カテゴリー</Text>
-          <View style={styles.categoryRow}>
-            {tags.map(tag => {
-              const isSelected = selectedCategoryId === tag.id;
-              const icon = getCategoryIcon(tag.name);
-              return (
-                <TouchableOpacity
-                  key={tag.id}
-                  style={[styles.categoryPill, isSelected && styles.categoryPillSelected]}
-                  onPress={() => setSelectedCategoryId(tag.id)}
-                >
-                  <MaterialCommunityIcons
-                    name={icon as any}
-                    size={20}
-                    color={isSelected ? C.white : C.textSecondary}
-                  />
-                  <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>
-                    {tag.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Destination */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>目的地</Text>
-          <TouchableOpacity
-            style={styles.formButton}
-            onPress={() => {
-              router.push({
-                pathname: '/schedule/unit/destination-picker',
-                params: {
-                  initial_lat: destination?.lat.toString(),
-                  initial_lng: destination?.lon.toString(),
-                  initial_name: destination?.name,
-                  initial_address: destination?.address,
-                  title,
-                  memo,
-                  selected_category_id: selectedCategoryId?.toString(),
-                  travel_mode: travelMode,
-                  arrival_hour: arrivalTime?.hour.toString(),
-                  arrival_minute: arrivalTime?.minute.toString(),
-                  use_last_train: useLastTrain.toString(),
-                  schedule_id: scheduleId.toString(),
-                  ...(scheduleListId ? { schedule_list_id: scheduleListId.toString() } : {}),
-                },
-              });
-            }}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <Ionicons name="location-outline" size={20} color={C.textSecondary} />
-            <Text style={destination ? styles.formButtonValue : styles.formButtonPlaceholder}>
-              {destination ? destination.name : '目的地を選択'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>スケジュールタイトル</Text>
+              <View style={styles.inputCard}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="例：ランチ"
+                  placeholderTextColor={C.placeholder}
+                  value={title}
+                  onChangeText={setTitle}
+                />
+              </View>
+            </View>
 
-        {/* Travel Mode */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>移動手段</Text>
-          <View style={styles.travelModeRow}>
-            {TRAVEL_MODES.map(mode => {
-              const isActive = travelMode === mode.value;
-              return (
-                <TouchableOpacity
-                  key={mode.value}
-                  style={[styles.travelModePill, isActive && styles.travelModePillActive]}
-                  onPress={() => setTravelMode(mode.value)}
-                >
-                  <MaterialCommunityIcons
-                    name={mode.icon as any}
-                    size={18}
-                    color={isActive ? C.white : C.textSecondary}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>スケジュールの種類</Text>
+              <View style={styles.categoryRow}>
+                {tags.map(tag => {
+                  const isSelected = selectedCategoryId === tag.id;
+                  const icon = getScheduleCategoryIcon(tag.name);
+                  return (
+                    <TouchableOpacity
+                      key={tag.id}
+                      style={[styles.categoryPill, isSelected && styles.categoryPillSelected]}
+                      onPress={() => setSelectedCategoryId(tag.id)}
+                    >
+                      <MaterialCommunityIcons
+                        name={icon as any}
+                        size={21}
+                        color={isSelected ? C.white : C.textSecondary}
+                      />
+                      <Text
+                        style={[styles.categoryText, isSelected && styles.categoryTextSelected]}
+                      >
+                        {tag.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>目的地</Text>
+              <TouchableOpacity
+                style={styles.formButton}
+                onPress={() => {
+                  router.push({
+                    pathname: '/schedule/unit/destination-picker',
+                    params: {
+                      initial_lat: destination?.lat.toString(),
+                      initial_lng: destination?.lon.toString(),
+                      initial_name: destination?.name,
+                      initial_address: destination?.address,
+                      title,
+                      memo,
+                      selected_category_id: selectedCategoryId?.toString(),
+                      travel_mode: travelMode,
+                      arrival_hour: arrivalTime?.hour.toString(),
+                      arrival_minute: arrivalTime?.minute.toString(),
+                      use_last_train: useLastTrain.toString(),
+                      schedule_id: scheduleId.toString(),
+                      ...(scheduleListId ? { schedule_list_id: scheduleListId.toString() } : {}),
+                    },
+                  });
+                }}
+              >
+                <View style={styles.formButtonLeft}>
+                  <Ionicons
+                    name={destination ? 'location' : 'location-outline'}
+                    size={24.5}
+                    color={destination ? C.primary : C.placeholder}
                   />
-                  <Text style={[styles.travelModeText, isActive && styles.travelModeTextActive]}>
-                    {mode.label}
+                  <Text
+                    style={destination ? styles.formButtonValue : styles.formButtonPlaceholder}
+                    numberOfLines={1}
+                  >
+                    {destination ? destination.name : '目的地を探す'}
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Arrival Time */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>到着時間</Text>
-          <View style={styles.arrivalRow}>
-            <TouchableOpacity
-              style={[styles.timeSelect, useLastTrain && styles.timeSelectDisabled]}
-              onPress={() => {
-                if (!useLastTrain) setShowTimePicker(true);
-              }}
-            >
-              <Ionicons name="time-outline" size={20} color={C.textSecondary} />
-              <Text style={styles.timeText}>{formatTime(arrivalTime)}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.checkboxRow, !isLastTrainEnabled && { opacity: 0.5 }]}
-              onPress={() => {
-                if (isLastTrainEnabled) {
-                  const nextVal = !useLastTrain;
-                  setUseLastTrain(nextVal);
-                  if (nextVal) setArrivalTime(null);
-                }
-              }}
-            >
-              <Ionicons
-                name={useLastTrain ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={C.primary}
-              />
-              <Text style={styles.checkboxLabel}>終電で帰る</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Routes */}
-        {destination && (arrivalTime || useLastTrain) && (
-          <View style={styles.section}>
-            <View style={styles.routeHeaderRow}>
-              <Text style={styles.sectionLabel}>ルート候補</Text>
-              <TouchableOpacity style={styles.searchRouteButton} onPress={handleSearchRoutes}>
-                <Text style={styles.searchRouteButtonText}>ルートを検索</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
               </TouchableOpacity>
             </View>
 
-            {routeLoading && <ActivityIndicator color={C.primary} style={{ marginTop: 20 }} />}
-            {routeError && <Text style={styles.errorText}>{routeError}</Text>}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>移動手段</Text>
+              <View style={styles.travelModeRow}>
+                {TRAVEL_MODES.map(mode => {
+                  const isActive = travelMode === mode.value;
+                  return (
+                    <TouchableOpacity
+                      key={mode.value}
+                      style={[styles.travelModePill, isActive && styles.travelModePillActive]}
+                      onPress={() => setTravelMode(mode.value)}
+                    >
+                      <MaterialCommunityIcons
+                        name={mode.icon as any}
+                        size={18}
+                        color={isActive ? C.white : C.textSecondary}
+                      />
+                      <Text
+                        style={[styles.travelModeText, isActive && styles.travelModeTextActive]}
+                      >
+                        {mode.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
 
-            {routeData &&
-              routeData.itineraries.map((itinerary, index) => {
-                const isSelected = selectedItineraryIndex === index;
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[styles.itineraryCard, isSelected && styles.itineraryCardSelected]}
-                    onPress={() => setSelectedItineraryIndex(index)}
-                  >
-                    <View style={styles.itineraryTimeRange}>
-                      <Text style={styles.itineraryTime}>
-                        {formatRouteTime(itinerary.departure_time)}
-                      </Text>
-                      <Text style={styles.itinerarySeparator}>→</Text>
-                      <Text style={styles.itineraryTime}>
-                        {formatRouteTime(itinerary.arrival_time)}
-                      </Text>
-                    </View>
-                    <Text style={styles.itineraryDuration}>
-                      {formatDuration(itinerary.duration_minutes)}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>到着時間</Text>
+              <View style={styles.arrivalRow}>
+                <TouchableOpacity
+                  style={[styles.timeSelect, useLastTrain && styles.timeSelectDisabled]}
+                  onPress={() => {
+                    if (!useLastTrain) setShowTimePicker(true);
+                  }}
+                >
+                  <View style={styles.formButtonLeft}>
+                    <Ionicons
+                      name="time-outline"
+                      size={21}
+                      color={useLastTrain ? C.textMuted : C.placeholder}
+                    />
+                    <Text style={[styles.timeText, useLastTrain && { color: C.textMuted }]}>
+                      {formatTime(arrivalTime)}
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
-          </View>
-        )}
+                  </View>
+                  <Ionicons
+                    name="caret-down"
+                    size={12}
+                    color={useLastTrain ? C.textMuted : C.textSecondary}
+                  />
+                </TouchableOpacity>
 
-        {/* Memo */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>メモ</Text>
-          <View style={styles.inputCard}>
-            <TextInput
-              style={[styles.textInput, { height: 100, textAlignVertical: 'top' }]}
-              placeholder="メモを入力..."
-              multiline
-              value={memo}
-              onChangeText={setMemo}
-            />
-          </View>
+                <TouchableOpacity
+                  style={[styles.checkboxRow, !isLastTrainEnabled && { opacity: 0.5 }]}
+                  onPress={() => {
+                    if (isLastTrainEnabled) {
+                      const nextVal = !useLastTrain;
+                      setUseLastTrain(nextVal);
+                      if (nextVal) setArrivalTime(null);
+                    }
+                  }}
+                >
+                  <View style={useLastTrain ? styles.checkboxChecked : styles.checkboxUnchecked}>
+                    {useLastTrain && <Ionicons name="checkmark" size={12} color={C.white} />}
+                  </View>
+                  <Text style={styles.checkboxLabel}>終電で帰る</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ルート検索結果 */}
+            {destination && (arrivalTime || useLastTrain) && (
+              <View style={styles.section}>
+                <View style={styles.routeHeaderRow}>
+                  <Text style={styles.sectionLabel}>ルート候補</Text>
+                  <TouchableOpacity
+                    style={styles.searchRouteButton}
+                    onPress={handleSearchRoutes}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="search" size={14} color={C.white} />
+                    <Text style={styles.searchRouteButtonText}>ルートを検索</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {routeLoading && (
+                  <View style={styles.routeCenterContainer}>
+                    <ActivityIndicator color={C.primary} size="large" />
+                    <Text style={styles.routeLoadingText}>ルートを検索中...</Text>
+                  </View>
+                )}
+
+                {routeError && (
+                  <View style={styles.routeCenterContainer}>
+                    <Ionicons name="alert-circle-outline" size={32} color={C.textMuted} />
+                    <Text style={styles.routeErrorText}>{routeError}</Text>
+                  </View>
+                )}
+
+                {!routeLoading &&
+                  !routeError &&
+                  routeData &&
+                  routeData.itineraries.length === 0 && (
+                    <View style={styles.routeCenterContainer}>
+                      <Text style={styles.routeErrorText}>ルートが見つかりませんでした</Text>
+                    </View>
+                  )}
+
+                {!routeLoading &&
+                  !routeError &&
+                  routeData &&
+                  routeData.itineraries.map((itinerary, index) => {
+                    const isSelected = selectedItineraryIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        style={[styles.itineraryCard, isSelected && styles.itineraryCardSelected]}
+                        onPress={() => setSelectedItineraryIndex(index)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.itinerarySummary}>
+                          <View style={styles.itineraryTimeRange}>
+                            <Text style={styles.itineraryTime}>
+                              {formatRouteTime(itinerary.departure_time)}
+                            </Text>
+                            <Ionicons name="arrow-forward" size={12} color={C.textMuted} />
+                            <Text style={styles.itineraryTimeArrival}>
+                              {formatRouteTime(itinerary.arrival_time)}
+                            </Text>
+                          </View>
+                          <View style={styles.itineraryMeta}>
+                            <Text style={styles.itineraryDuration}>
+                              {formatDuration(itinerary.duration_minutes)}
+                            </Text>
+                            {itinerary.number_of_transfers != null && (
+                              <Text style={styles.itineraryTransfers}>
+                                乗換{itinerary.number_of_transfers}回
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+
+                        {/* Legs Details */}
+                        {itinerary.legs && itinerary.legs.length > 0 && (
+                          <View style={styles.itineraryLegs}>
+                            {itinerary.legs.map((leg, lIdx) => {
+                              const icon = getLegIcon(leg.mode);
+                              const lineName =
+                                leg.route_short_name || leg.route_long_name || leg.mode;
+                              return (
+                                <View key={lIdx} style={styles.legItem}>
+                                  <View style={styles.legIconContainer}>
+                                    <MaterialCommunityIcons
+                                      name={icon.name as any}
+                                      size={16}
+                                      color={icon.color}
+                                    />
+                                  </View>
+                                  <View style={styles.legDetails}>
+                                    <Text style={styles.legLine} numberOfLines={1}>
+                                      {lineName}
+                                      {leg.headsign ? ` (${leg.headsign}行)` : ''}
+                                    </Text>
+                                    <Text style={styles.legStation} numberOfLines={1}>
+                                      {formatRouteTime(leg.departure_time)} {leg.from_name}
+                                      {' → '}
+                                      {formatRouteTime(leg.arrival_time)} {leg.to_name}
+                                    </Text>
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        )}
+
+                        {isSelected && (
+                          <View style={styles.selectedCheckContainer}>
+                            <Ionicons name="checkmark-circle" size={22} color={C.primary} />
+                            <Text style={styles.selectedCheckText}>選択中</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+              </View>
+            )}
+
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>一言メモ</Text>
+              <View style={styles.memoCard}>
+                <TextInput
+                  style={styles.memoInput}
+                  placeholder="例：4人でテーブル席で予約する"
+                  placeholderTextColor={C.placeholder}
+                  value={memo}
+                  onChangeText={setMemo}
+                  multiline
+                  textAlignVertical="top"
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollRef.current?.scrollToEnd({ animated: true });
+                    }, 150);
+                  }}
+                />
+              </View>
+            </View>
+
+            {/* Delete */}
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={20} color={C.danger} />
+              <Text style={styles.deleteButtonText}>予定を削除</Text>
+            </TouchableOpacity>
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
         </View>
 
-        {/* Delete */}
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Ionicons name="trash-outline" size={20} color={C.danger} />
-          <Text style={styles.deleteButtonText}>予定を削除</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      <TimePickerModal
-        visible={showTimePicker}
-        onClose={() => setShowTimePicker(false)}
-        onSelect={(h, m) => setArrivalTime({ hour: h, minute: m })}
-        initialHour={arrivalTime?.hour}
-        initialMinute={arrivalTime?.minute}
-      />
-    </View>
+        <TimePickerModal
+          visible={showTimePicker}
+          onSelect={(h, m) => setArrivalTime({ hour: h, minute: m })}
+          onClose={() => setShowTimePicker(false)}
+          initialHour={arrivalTime?.hour}
+          initialMinute={arrivalTime?.minute}
+        />
+      </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   header: {
-    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
+    height: 60,
     backgroundColor: C.white,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
-  addText: { fontSize: 16, fontWeight: '700', color: C.primary },
+  headerTitle: { fontSize: 15.75, fontWeight: '700', color: C.textPrimary },
+  addText: { fontSize: 14, fontWeight: '700', color: C.primary },
   scrollView: { flex: 1 },
-  scrollContent: { padding: 16, gap: 24 },
-  section: { gap: 12 },
-  sectionLabel: { fontSize: 14, fontWeight: '700', color: C.textSecondary },
+  scrollContent: { padding: 14, paddingTop: 17.5, paddingBottom: 100, gap: 17.5 },
+  section: { gap: 7 },
+  sectionLabel: { fontSize: 14, fontWeight: '500', color: C.textSecondary },
   inputCard: {
     backgroundColor: C.white,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 7,
+    paddingHorizontal: 12.25,
+    justifyContent: 'center',
+    height: 45.5,
   },
-  textInput: { fontSize: 16, color: C.textPrimary },
-  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  textInput: { fontSize: 14, fontWeight: '400', color: C.textPrimary },
+  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12.25 },
   categoryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
+    gap: 7,
+    paddingVertical: 10.5,
+    paddingHorizontal: 12.25,
     backgroundColor: C.white,
-    borderWidth: 1,
-    borderColor: C.border,
+    borderRadius: 10000,
   },
-  categoryPillSelected: { backgroundColor: C.primary, borderColor: C.primary },
-  categoryText: { fontSize: 14, color: C.textSecondary },
-  categoryTextSelected: { color: C.white, fontWeight: '700' },
+  categoryPillSelected: { backgroundColor: C.accent },
+  categoryText: { fontSize: 12.25, fontWeight: '700', color: C.textSecondary },
+  categoryTextSelected: { color: C.white },
   formButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
     backgroundColor: C.white,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 7,
+    paddingHorizontal: 12.25,
+    height: 45.5,
   },
-  formButtonValue: { fontSize: 16, color: C.textPrimary },
-  formButtonPlaceholder: { fontSize: 16, color: C.placeholder },
-  travelModeRow: { flexDirection: 'row', gap: 8 },
-  travelModePill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: C.white,
-  },
-  travelModePillActive: { backgroundColor: C.primary },
-  travelModeText: { fontSize: 13, color: C.textSecondary },
-  travelModeTextActive: { color: C.white, fontWeight: '700' },
-  arrivalRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  formButtonLeft: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  formButtonPlaceholder: { fontSize: 14, fontWeight: '400', color: C.placeholder },
+  formButtonValue: { fontSize: 14, fontWeight: '500', color: C.textPrimary, flex: 1 },
+  arrivalRow: { flexDirection: 'row', alignItems: 'center', gap: 12.25 },
   timeSelect: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
     backgroundColor: C.white,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 7,
+    paddingHorizontal: 12.25,
+    width: 140,
+    height: 45.5,
   },
   timeSelectDisabled: { opacity: 0.5 },
-  timeText: { fontSize: 16, color: C.textPrimary },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  checkboxLabel: { fontSize: 14, color: C.textSecondary },
-  routeHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  searchRouteButton: {
-    backgroundColor: C.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 100,
+  timeText: { fontSize: 14, fontWeight: '400', color: C.placeholder },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  checkboxUnchecked: {
+    width: 17.5,
+    height: 17.5,
+    borderRadius: 3.5,
+    borderWidth: 1,
+    borderColor: C.textMuted,
+    backgroundColor: C.white,
   },
-  searchRouteButtonText: { color: C.white, fontSize: 12, fontWeight: '700' },
+  checkboxChecked: {
+    width: 17.5,
+    height: 17.5,
+    borderRadius: 3.5,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxLabel: { fontSize: 14, fontWeight: '400', color: C.textMuted },
+  memoCard: { backgroundColor: C.white, borderRadius: 10.5, paddingHorizontal: 14, height: 80 },
+  memoInput: { flex: 1, fontSize: 14, fontWeight: '400', color: C.textPrimary, paddingTop: 17.5 },
+  travelModeRow: { flexDirection: 'row', gap: 10 },
+  travelModePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: C.white,
+    borderRadius: 10000,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  travelModePillActive: { backgroundColor: C.primary, borderColor: C.primary },
+  travelModeText: { fontSize: 12.25, fontWeight: '500', color: C.textSecondary },
+  travelModeTextActive: { color: C.white, fontWeight: '700' },
+  routeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  searchRouteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  searchRouteButtonText: { fontSize: 12, fontWeight: '700', color: C.white },
+  routeCenterContainer: { alignItems: 'center', paddingVertical: 24, gap: 8 },
+  routeLoadingText: { fontSize: 13, color: C.textSecondary },
+  routeErrorText: { fontSize: 13, color: C.textSecondary, textAlign: 'center' },
   itineraryCard: {
     backgroundColor: C.white,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: C.border,
     marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  itineraryCardSelected: { borderColor: C.primary, borderWidth: 2 },
-  itineraryTimeRange: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  itineraryTime: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
-  itinerarySeparator: { color: C.textMuted },
-  itineraryDuration: { color: C.textSecondary },
-  errorText: { color: C.danger, marginTop: 8 },
+  itineraryCardSelected: { borderColor: C.primary, backgroundColor: '#F0F5FA' },
+  itinerarySummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  itineraryTimeRange: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  itineraryTime: { fontSize: 18, fontWeight: '500', color: C.textPrimary },
+  itineraryTimeArrival: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
+  itineraryMeta: { alignItems: 'flex-end' },
+  itineraryDuration: { fontSize: 13, fontWeight: '500', color: C.textSecondary },
+  itineraryTransfers: { fontSize: 13, fontWeight: '500', color: C.textSecondary },
+  itineraryLegs: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingTop: 8,
+    gap: 8,
+  },
+  legItem: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  legIconContainer: { width: 24, alignItems: 'center' },
+  legDetails: { flex: 1, gap: 2 },
+  legLine: { fontSize: 12, fontWeight: '700', color: C.textPrimary },
+  legStation: { fontSize: 12, color: C.textSecondary },
+  selectedCheckContainer: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  selectedCheckText: { fontSize: 12, fontWeight: '700', color: C.primary },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -825,5 +976,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 16,
   },
-  deleteButtonText: { color: C.danger, fontSize: 16, fontWeight: '700' },
+  deleteButtonText: { color: C.danger, fontSize: 14, fontWeight: '700' },
 });

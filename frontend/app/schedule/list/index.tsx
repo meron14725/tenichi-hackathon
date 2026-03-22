@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
 import OwlChatBubble from '@/components/owl-chat-bubble';
@@ -41,82 +43,85 @@ export default function ScheduleIndexScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [mapVisible, setMapVisible] = useState(false);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherForecastDay>>({});
+  const [menuVisible, setMenuVisible] = useState<boolean>(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!id) return;
-      try {
-        setLoading(true);
-        const [settings, listData] = await Promise.all([
-          userApi.getSettings(),
-          scheduleListApi.getById(Number(id)),
-        ]);
-        setUserSettings(settings);
-        setScheduleList(listData);
+  const fetchData = useCallback(async () => {
+    if (!id) return;
+    try {
+      const [settings, listData] = await Promise.all([
+        userApi.getSettings(),
+        scheduleListApi.getById(Number(id)),
+      ]);
+      setUserSettings(settings);
+      setScheduleList(listData);
 
-        const now = new Date();
-        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        if (listData.date === dateStr) {
-          suggestionApi
-            .getToday()
-            .then(setSuggestionData)
-            .catch(() => null);
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      if (listData.date === dateStr) {
+        suggestionApi
+          .getToday()
+          .then(setSuggestionData)
+          .catch(() => null);
+      }
+
+      if (listData.schedules.length > 0) {
+        const details = await Promise.all(listData.schedules.map(s => scheduleApi.getById(s.id)));
+        details.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+        setSchedules(details);
+
+        const routePromises = details
+          .filter(s => s.selected_route)
+          .map(s => scheduleApi.getRoute(s.id));
+        const routeResults = await Promise.all(routePromises);
+        const routeMap: Record<number, ScheduleRouteFullResponse> = {};
+        routeResults.forEach(r => {
+          routeMap[r.schedule_id] = r;
+        });
+        setRoutes(routeMap);
+
+        const weatherLocations: { lat: number; lon: number }[] = [];
+        if (listData.departure_lat != null && listData.departure_lng != null) {
+          weatherLocations.push({ lat: listData.departure_lat, lon: listData.departure_lng });
         }
-
-        if (listData.schedules.length > 0) {
-          const details = await Promise.all(listData.schedules.map(s => scheduleApi.getById(s.id)));
-          details.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
-          setSchedules(details);
-
-          const routePromises = details
-            .filter(s => s.selected_route)
-            .map(s => scheduleApi.getRoute(s.id));
-          const routeResults = await Promise.all(routePromises);
-          const routeMap: Record<number, ScheduleRouteFullResponse> = {};
-          routeResults.forEach(r => {
-            routeMap[r.schedule_id] = r;
-          });
-          setRoutes(routeMap);
-
-          const weatherLocations: { lat: number; lon: number }[] = [];
-          if (listData.departure_lat != null && listData.departure_lng != null) {
-            weatherLocations.push({ lat: listData.departure_lat, lon: listData.departure_lng });
+        details.forEach(s => {
+          if (s.destination_lat != null && s.destination_lon != null) {
+            weatherLocations.push({ lat: s.destination_lat, lon: s.destination_lon });
           }
-          details.forEach(s => {
-            if (s.destination_lat != null && s.destination_lon != null) {
-              weatherLocations.push({ lat: s.destination_lat, lon: s.destination_lon });
-            }
-          });
+        });
 
-          const uniqueLocs = Array.from(
-            new Set(weatherLocations.map(l => `${l.lat},${l.lon}`))
-          ).map(s => {
+        const uniqueLocs = Array.from(new Set(weatherLocations.map(l => `${l.lat},${l.lon}`))).map(
+          s => {
             const [lat, lon] = s.split(',').map(Number);
             return { lat, lon };
-          });
+          }
+        );
 
-          const weatherResults = await Promise.all(
-            uniqueLocs.map(l => weatherApi.getForecast(l.lat, l.lon).catch(() => null))
-          );
-          const newWeatherMap: Record<string, WeatherForecastDay> = {};
-          weatherResults.forEach((res, i) => {
-            if (res && res.forecast.length > 0) {
-              const loc = uniqueLocs[i];
-              const targetDayWeather =
-                res.forecast.find(f => f.date === listData.date) || res.forecast[0];
-              newWeatherMap[`${loc.lat},${loc.lon}`] = targetDayWeather;
-            }
-          });
-          setWeatherMap(newWeatherMap);
-        }
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-      } finally {
-        setLoading(false);
+        const weatherResults = await Promise.all(
+          uniqueLocs.map(l => weatherApi.getForecast(l.lat, l.lon).catch(() => null))
+        );
+        const newWeatherMap: Record<string, WeatherForecastDay> = {};
+        weatherResults.forEach((res, i) => {
+          if (res && res.forecast.length > 0) {
+            const loc = uniqueLocs[i];
+            const targetDayWeather =
+              res.forecast.find(f => f.date === listData.date) || res.forecast[0];
+            newWeatherMap[`${loc.lat},${loc.lon}`] = targetDayWeather;
+          }
+        });
+        setWeatherMap(newWeatherMap);
       }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
     }
-    fetchData();
   }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   async function handleToggleTodo(itemId: number) {
     if (!scheduleList) return;
@@ -161,6 +166,38 @@ export default function ScheduleIndexScreen() {
     return pins;
   }
 
+  function handleEdit() {
+    setMenuVisible(false);
+    if (scheduleList) {
+      router.push({
+        pathname: '/schedule/list/edit',
+        params: { id: scheduleList.id.toString() },
+      });
+    }
+  }
+
+  function handleDelete() {
+    setMenuVisible(false);
+    Alert.alert('確認', 'この日の予定をすべて削除しますか？', [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: '削除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            if (scheduleList) {
+              await scheduleListApi.delete(scheduleList.id);
+              router.replace('/(tabs)');
+            }
+          } catch (error) {
+            console.error('Failed to delete schedule list:', error);
+            Alert.alert('エラー', '削除に失敗しました');
+          }
+        },
+      },
+    ]);
+  }
+
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingCenter]}>
@@ -185,7 +222,7 @@ export default function ScheduleIndexScreen() {
             <Ionicons name="chevron-back" size={22} color={C.white} />
             <Text style={styles.backText}>カレンダー</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton}>
+          <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
             <Feather name="more-horizontal" size={20} color={C.white} />
           </TouchableOpacity>
         </View>
@@ -237,7 +274,7 @@ export default function ScheduleIndexScreen() {
             onPressItem={item => {
               if (item.scheduleId) {
                 router.push({
-                  pathname: '/schedule/unit/edit',
+                  pathname: '/schedule/unit/detail',
                   params: {
                     schedule_id: item.scheduleId.toString(),
                     schedule_list_id: scheduleList?.id?.toString(),
@@ -272,6 +309,32 @@ export default function ScheduleIndexScreen() {
         pins={getMapPins()}
         title={scheduleList?.name || 'ルート情報'}
       />
+
+      {/* Menu Modal */}
+      <Modal
+        visible={menuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        >
+          <View style={[styles.menuContainer, { top: insets.top + 50 }]}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
+              <Ionicons name="create-outline" size={20} color={C.textPrimary} />
+              <Text style={styles.menuItemText}>編集</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+              <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>削除</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -296,7 +359,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  owlLayer: { marginTop: -10 },
+  owlLayer: { marginTop: -30 },
   scrollView: { flex: 1 },
   scrollContent: {},
   mainContent: {
@@ -340,5 +403,34 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  menuContainer: {
+    position: 'absolute',
+    right: 20,
+    width: 160,
+    backgroundColor: C.white,
+    borderRadius: 12,
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 10,
+  },
+  menuItemText: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E8EAEC',
+    marginHorizontal: 8,
   },
 });

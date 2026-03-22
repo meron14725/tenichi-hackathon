@@ -8,9 +8,15 @@ interface TimelineViewProps {
   items: TimelineItem[];
   extraIdForEdit?: number; // schedule_list_id
   onPressItem?: (item: TimelineItem) => void;
+  transparentCards?: boolean;
 }
 
-export default function TimelineView({ items, extraIdForEdit, onPressItem }: TimelineViewProps) {
+export default function TimelineView({
+  items,
+  extraIdForEdit,
+  onPressItem,
+  transparentCards,
+}: TimelineViewProps) {
   if (items.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -22,7 +28,7 @@ export default function TimelineView({ items, extraIdForEdit, onPressItem }: Tim
   return (
     <View style={styles.timeline}>
       {items.map((item, index) =>
-        renderTimelineEntry(item, index, items, extraIdForEdit, onPressItem)
+        renderTimelineEntry(item, index, items, extraIdForEdit, onPressItem, transparentCards)
       )}
     </View>
   );
@@ -33,7 +39,8 @@ function renderTimelineEntry(
   index: number,
   array: TimelineItem[],
   extraIdForEdit?: number,
-  onPressItem?: (item: TimelineItem) => void
+  onPressItem?: (item: TimelineItem) => void,
+  transparentCards?: boolean
 ) {
   const isLast = index === array.length - 1;
   const textColor = item.past ? C.textMuted : C.black;
@@ -50,43 +57,58 @@ function renderTimelineEntry(
 
       <View style={styles.timelineContent}>
         {item.hasChevron ? (
-          <TouchableOpacity
-            style={[styles.eventCard, { opacity: item.past ? 0.6 : 1 }]}
-            onPress={() => (onPressItem ? onPressItem(item) : null)}
-          >
-            <View
-              style={[styles.eventIcon, { backgroundColor: item.past ? C.weatherBg : item.iconBg }]}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={18}
-                color={item.past ? C.textMuted : C.textSecondary}
-              />
-            </View>
-            <View style={styles.eventDetails}>
-              <Text style={[styles.eventTitle, { color: textColor }]}>{item.title}</Text>
-              {item.subtitle ? (
-                <Text style={[styles.eventSubtitle, { color: textColor }]}>{item.subtitle}</Text>
-              ) : null}
-              {item.weather && (
-                <View style={styles.eventWeatherInline}>
-                  <Text style={[styles.weatherTempText, { color: textColor }]}>
-                    {item.weather.max_temp_c}° / {item.weather.min_temp_c}°
-                  </Text>
-                  <Text style={styles.weatherDivider}> | </Text>
-                  <Text
-                    style={[
-                      styles.weatherRainText,
-                      { color: item.past ? C.textMuted : C.headerBg },
-                    ]}
-                  >
-                    降水確率 {item.weather.chance_of_rain}%
-                  </Text>
+          (() => {
+            const isClickable = !!onPressItem;
+            const CardContainer = isClickable ? (TouchableOpacity as any) : View;
+            return (
+              <CardContainer
+                style={[
+                  styles.eventCard,
+                  { opacity: item.past ? 0.6 : 1 },
+                  transparentCards && { backgroundColor: 'transparent' },
+                ]}
+                onPress={isClickable ? () => onPressItem!(item) : undefined}
+              >
+                <View
+                  style={[
+                    styles.eventIcon,
+                    { backgroundColor: item.past ? C.weatherBg : item.iconBg },
+                  ]}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={18}
+                    color={item.past ? C.textMuted : C.textSecondary}
+                  />
                 </View>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={C.textMuted} />
-          </TouchableOpacity>
+                <View style={styles.eventDetails}>
+                  <Text style={[styles.eventTitle, { color: textColor }]}>{item.title}</Text>
+                  {item.subtitle ? (
+                    <Text style={[styles.eventSubtitle, { color: textColor }]}>
+                      {item.subtitle}
+                    </Text>
+                  ) : null}
+                  {item.weather && (
+                    <View style={styles.eventWeatherInline}>
+                      <Text style={[styles.weatherTempText, { color: textColor }]}>
+                        {item.weather.max_temp_c}° / {item.weather.min_temp_c}°
+                      </Text>
+                      <Text style={styles.weatherDivider}> | </Text>
+                      <Text
+                        style={[
+                          styles.weatherRainText,
+                          { color: item.past ? C.textMuted : C.headerBg },
+                        ]}
+                      >
+                        降水確率 {item.weather.chance_of_rain}%
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                {isClickable && <Ionicons name="chevron-forward" size={18} color={C.textMuted} />}
+              </CardContainer>
+            );
+          })()
         ) : (
           <View style={[styles.stationRow, { opacity: item.past ? 0.6 : 1 }]}>
             <View style={{ flex: 1 }}>
