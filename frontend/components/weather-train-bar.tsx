@@ -41,7 +41,7 @@ export default function WeatherTrainBar({ weatherMap, schedules, routes }: Weath
   const allEvents: { time: string; label: string; type: 'move' | 'event'; mode?: string }[] = [];
   schedules.forEach(s => {
     const route = routes[s.id];
-    if (route && route.route_data) {
+    if (route && route.route_data && route.route_data.legs) {
       route.route_data.legs.forEach(leg => {
         allEvents.push({
           time: leg.departure_time,
