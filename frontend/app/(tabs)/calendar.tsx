@@ -30,11 +30,10 @@ const C = {
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-type CategoryUI = {
-  color: string;
-  icon: string;
-  iconSet: 'ionicons' | 'fa5' | 'mci';
-};
+type CategoryUI =
+  | { color: string; icon: React.ComponentProps<typeof Ionicons>['name']; iconSet: 'ionicons' }
+  | { color: string; icon: React.ComponentProps<typeof FontAwesome5>['name']; iconSet: 'fa5' }
+  | { color: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; iconSet: 'mci' };
 
 const CATEGORY_UI_MAP: Record<string, CategoryUI> = {
   休日: { color: C.holiday, icon: 'bicycle', iconSet: 'ionicons' },
@@ -49,16 +48,14 @@ function getCategoryUI(name?: string): CategoryUI {
   return CATEGORY_UI_MAP[name] || defaultUI;
 }
 
-function renderCategoryIcon(
-  iconInfo: { icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' },
-  color: string,
-  size: number = 10
-) {
-  if (iconInfo.iconSet === 'ionicons')
-    return <Ionicons name={iconInfo.icon as any} size={size} color={color} />;
-  if (iconInfo.iconSet === 'fa5')
+function renderCategoryIcon(iconInfo: CategoryUI, color: string, size: number = 10) {
+  if (iconInfo.iconSet === 'ionicons') {
+    return <Ionicons name={iconInfo.icon} size={size} color={color} />;
+  }
+  if (iconInfo.iconSet === 'fa5') {
     return <FontAwesome5 name={iconInfo.icon} size={size} color={color} />;
-  return <MaterialCommunityIcons name={iconInfo.icon as any} size={size} color={color} />;
+  }
+  return <MaterialCommunityIcons name={iconInfo.icon} size={size} color={color} />;
 }
 
 function getCalendarDays(year: number, month: number) {

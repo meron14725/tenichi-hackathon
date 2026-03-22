@@ -93,7 +93,7 @@ function renderTimelineEntry(
               <View style={styles.stationTextContainer}>
                 {item.iconName && (
                   <MaterialCommunityIcons
-                    name={item.iconName as any}
+                    name={item.iconName}
                     size={16}
                     color={item.past ? C.textMuted : C.textSecondary}
                     style={styles.stationIcon}
