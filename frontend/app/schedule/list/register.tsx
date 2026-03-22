@@ -20,22 +20,8 @@ import { userApi } from '@/api/userApi';
 import { scheduleListApi } from '@/api/scheduleListApi';
 import { categoryApi, CategoryResponse } from '@/api/categoryApi';
 import { useAuth } from '@/contexts/AuthContext';
-
-const C = {
-  primary: '#436F9B',
-  accent: '#6E8F8A',
-  holidayAccent: '#A86A78',
-  bg: '#EEF0F1',
-  white: '#FFFFFF',
-  textPrimary: '#1F2528',
-  textSecondary: '#63747E',
-  textMuted: '#B5BFC5',
-  black: '#000000',
-  border: '#EEF0F1',
-  placeholder: '#98A6AE',
-  searchBg: '#EEF0F1',
-  stepConnector: '#C2A070',
-};
+import { AppColors as C } from '@/constants/app-colors';
+import { getCategoryIcon, getCategoryColor, CategoryIconInfo } from '@/utils/category-helper';
 
 type Step = 'method' | 'form' | 'routine';
 
@@ -45,28 +31,6 @@ type Routine = {
   accentColor: string;
   steps: string[];
 };
-
-const CATEGORY_ICON_MAP: Record<string, { icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' }> = {
-  休日: { icon: 'bicycle', iconSet: 'ionicons' },
-  旅行: { icon: 'suitcase-rolling', iconSet: 'fa5' },
-  仕事: { icon: 'briefcase-outline', iconSet: 'mci' },
-  出張: { icon: 'briefcase', iconSet: 'fa5' },
-};
-
-function getCategoryIcon(name: string) {
-  return CATEGORY_ICON_MAP[name] || { icon: 'bookmark-outline', iconSet: 'ionicons' };
-}
-
-const CATEGORY_COLORS: Record<number, string> = {
-  4: '#D1AEB6',
-  5: '#D6C093',
-  6: '#C1D3D0',
-  7: '#9284C2',
-};
-
-function getCategoryColor(id: number) {
-  return CATEGORY_COLORS[id] || C.accent;
-}
 
 const ROUTINES: Routine[] = [
   {
@@ -349,7 +313,7 @@ export default function RegisterScreen() {
   const [newBelonging, setNewBelonging] = useState<string>('');
 
   const [departureAddress, setDepartureAddress] = useState<string>('');
-  const [departureName, setDepartureName] = useState<string>('');
+  const [departureName, setDepartureName] = useState<string>('自宅');
   const [departureLat, setDepartureLat] = useState<number | null>(null);
   const [departureLng, setDepartureLng] = useState<number | null>(null);
 
@@ -499,10 +463,7 @@ export default function RegisterScreen() {
     });
   }
 
-  function renderCategoryIcon(
-    iconInfo: { icon: string; iconSet: 'ionicons' | 'fa5' | 'mci' },
-    color: string
-  ) {
+  function renderCategoryIcon(iconInfo: CategoryIconInfo, color: string) {
     const size = 20;
     if (iconInfo.iconSet === 'ionicons')
       return <Ionicons name={iconInfo.icon as any} size={size} color={color} />;
@@ -677,6 +638,7 @@ export default function RegisterScreen() {
                     <MapAddressPicker
                       pinPosition={departurePinPosition}
                       onPinChange={handleDepartureChange}
+                      onNameChange={setDepartureName}
                       pinName={departureName}
                     />
                   </View>

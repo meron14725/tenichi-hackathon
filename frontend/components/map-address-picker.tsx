@@ -19,6 +19,7 @@ const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 type MapAddressPickerProps = {
   pinPosition: { lat: number; lng: number } | null;
   onPinChange: (lat: number, lng: number, address: string, name?: string) => void;
+  onNameChange?: (name: string) => void;
   pinName?: string;
 };
 
@@ -110,9 +111,11 @@ if (Platform.OS === 'web') {
 
   function AddressGeocoder({
     onGeocode,
+    onNameChange,
     initialQuery,
   }: {
     onGeocode: (lat: number, lng: number, address: string, name?: string) => void;
+    onNameChange?: (name: string) => void;
     initialQuery?: string;
   }) {
     const [query, setQuery] = useState(initialQuery || '');
@@ -128,6 +131,7 @@ if (Platform.OS === 'web') {
     const handleChangeText = useCallback(
       (text: string) => {
         setQuery(text);
+        onNameChange?.(text);
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         if (!text.trim() || !geocoder) return;
 
@@ -140,7 +144,7 @@ if (Platform.OS === 'web') {
           });
         }, 800);
       },
-      [geocoder, onGeocode]
+      [geocoder, onGeocode, onNameChange]
     );
 
     return (
@@ -154,7 +158,12 @@ if (Platform.OS === 'web') {
           onChangeText={handleChangeText}
         />
         {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')}>
+          <TouchableOpacity
+            onPress={() => {
+              setQuery('');
+              onNameChange?.('');
+            }}
+          >
             <Ionicons name="close-circle" size={16} color={C.textMuted} />
           </TouchableOpacity>
         )}
@@ -190,6 +199,7 @@ if (Platform.OS === 'web') {
   WebMapAddressPicker = function WebMap({
     pinPosition,
     onPinChange,
+    onNameChange,
     pinName,
   }: MapAddressPickerProps) {
     return (
@@ -197,7 +207,11 @@ if (Platform.OS === 'web') {
         <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
           <GeocoderProvider>
             <MapContent pinPosition={pinPosition} onPinChange={onPinChange} />
-            <AddressGeocoder onGeocode={onPinChange} initialQuery={pinName} />
+            <AddressGeocoder
+              onGeocode={onPinChange}
+              onNameChange={onNameChange}
+              initialQuery={pinName}
+            />
           </GeocoderProvider>
         </APIProvider>
       </View>
@@ -217,6 +231,7 @@ if (Platform.OS !== 'web') {
   NativeMapAddressPicker = function NativeMap({
     pinPosition,
     onPinChange,
+    onNameChange,
     pinName,
   }: MapAddressPickerProps) {
     const webViewRef = useRef<any>(null);
@@ -383,7 +398,10 @@ if (Platform.OS !== 'web') {
             placeholder="住所を入力してマップを移動"
             placeholderTextColor={C.placeholder}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={text => {
+              setSearchQuery(text);
+              onNameChange?.(text);
+            }}
             onSubmitEditing={handleSearch}
             returnKeyType="search"
           />
@@ -457,6 +475,7 @@ const nativeStyles = StyleSheet.create({
 export default function MapAddressPicker({
   pinPosition,
   onPinChange,
+  onNameChange,
   pinName,
 }: MapAddressPickerProps) {
   if (!GOOGLE_MAPS_API_KEY) {
@@ -473,7 +492,12 @@ export default function MapAddressPicker({
 
   if (Platform.OS === 'web' && WebMapAddressPicker) {
     return (
-      <WebMapAddressPicker pinPosition={pinPosition} onPinChange={onPinChange} pinName={pinName} />
+      <WebMapAddressPicker
+        pinPosition={pinPosition}
+        onPinChange={onPinChange}
+        onNameChange={onNameChange}
+        pinName={pinName}
+      />
     );
   }
 
@@ -482,6 +506,7 @@ export default function MapAddressPicker({
       <NativeMapAddressPicker
         pinPosition={pinPosition}
         onPinChange={onPinChange}
+        onNameChange={onNameChange}
         pinName={pinName}
       />
     );

@@ -22,41 +22,11 @@ import TimelineView from '@/components/timeline-view';
 import { TimelineItem } from '@/lib/types/timeline';
 import { AppColors as C } from '@/constants/app-colors';
 import { formatTime } from '@/utils/date-utils';
+import { getScheduleCategoryIcon, getScheduleCategoryColor } from '@/utils/schedule-helper';
+import { getWeatherIcon, getWeatherAdvice } from '@/utils/weather-helper';
 
 const owlAvatar = require('@/assets/images/owl-avatar.png');
 
-function getCategoryIcon(name: string): string {
-  if (name.includes('遊')) return 'run-fast';
-  if (name.includes('食')) return 'hamburger';
-  if (name.includes('仕事')) return 'account-group-outline';
-  if (name.includes('帰')) return 'exit-run';
-  return 'label-outline';
-}
-
-function getCategoryColor(name: string): string {
-  if (name.includes('遊') || name.includes('旅')) return C.travel;
-  if (name.includes('食')) return C.eventWarm;
-  if (name.includes('仕事')) return C.work;
-  if (name.includes('帰')) return C.eventGreen;
-  return C.eventGreen;
-}
-
-function getWeatherIcon(condition: string): string {
-  const c = condition.toLowerCase();
-  if (c.includes('sunny') || c.includes('clear') || c.includes('晴')) return 'weather-sunny';
-  if (c.includes('cloud') || c.includes('曇')) return 'weather-cloudy';
-  if (c.includes('rain') || c.includes('雨')) return 'weather-rainy';
-  if (c.includes('snow') || c.includes('雪')) return 'weather-snowy';
-  return 'weather-partly-cloudy';
-}
-
-function getWeatherAdvice(weather: WeatherForecastDay): string {
-  if (weather.chance_of_rain >= 50) return `雨が降るので傘が必要です！`;
-  if (weather.chance_of_rain >= 30) return `雨の可能性があります。折り畳み傘をお忘れなく。`;
-  if (weather.avg_temp_c <= 10) return `寒くなりそうです。暖かい服装で出かけましょう。`;
-  if (weather.avg_temp_c >= 30) return `暑くなりそうです。熱中症に注意しましょう。`;
-  return `お出かけ日和です！`;
-}
 
 export default function ScheduleDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -213,7 +183,7 @@ export default function ScheduleDetailScreen() {
     }
 
     const tag = schedule.tags.length > 0 ? schedule.tags[0] : null;
-    const iconBg = tag ? getCategoryColor(tag.name) : C.eventGreen;
+    const iconBg = tag ? getScheduleCategoryColor(tag.name) : C.eventGreen;
 
     items.push({
       time: formatTime(schedule.start_at),
@@ -246,8 +216,8 @@ export default function ScheduleDetailScreen() {
   }
 
   const categoryTag = schedule.tags.length > 0 ? schedule.tags[0] : null;
-  const categoryIconName = categoryTag ? getCategoryIcon(categoryTag.name) : 'label-outline';
-  const categoryBg = categoryTag ? getCategoryColor(categoryTag.name) : C.eventGreen;
+  const categoryIconName = categoryTag ? getScheduleCategoryIcon(categoryTag.name) : 'label-outline';
+  const categoryBg = categoryTag ? getScheduleCategoryColor(categoryTag.name) : C.eventGreen;
 
   // Aggregate weather for the card
   const displayMaxTemp = Math.max(weather?.max_temp_c ?? -99, originWeather?.max_temp_c ?? -99);

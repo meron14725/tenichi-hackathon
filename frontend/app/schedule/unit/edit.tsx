@@ -21,29 +21,10 @@ import { scheduleApi } from '@/api/scheduleApi';
 import { routeApi, TravelMode, RouteSearchResponse } from '@/api/routeApi';
 import { userApi, UserSettingsResponse } from '@/api/userApi';
 import { useAuth } from '@/contexts/AuthContext';
+import { AppColors as C } from '@/constants/app-colors';
+import { getScheduleCategoryIcon } from '@/utils/schedule-helper';
 import TimePickerModal from '@/components/time-picker-modal';
 
-const C = {
-  primary: '#436F9B',
-  accent: '#6E8F8A',
-  bg: '#EEF0F1',
-  white: '#FFFFFF',
-  textPrimary: '#1F2528',
-  textSecondary: '#63747E',
-  textMuted: '#B5BFC5',
-  black: '#000000',
-  border: '#EEF0F1',
-  placeholder: '#98A6AE',
-  danger: '#FF3B30',
-};
-
-function getCategoryIcon(name: string): string {
-  if (name.includes('遊')) return 'run-fast';
-  if (name.includes('食')) return 'hamburger';
-  if (name.includes('仕事')) return 'account-group-outline';
-  if (name.includes('帰')) return 'exit-run';
-  return 'label-outline';
-}
 
 const TRAVEL_MODES: { value: TravelMode; label: string; icon: string }[] = [
   { value: 'transit', label: '電車', icon: 'train' },
@@ -544,7 +525,7 @@ export default function ScheduleEditScreen() {
               <View style={styles.categoryRow}>
                 {tags.map(tag => {
                   const isSelected = selectedCategoryId === tag.id;
-                  const icon = getCategoryIcon(tag.name);
+                  const icon = getScheduleCategoryIcon(tag.name);
                   return (
                     <TouchableOpacity
                       key={tag.id}
