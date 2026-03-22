@@ -116,7 +116,7 @@ export function buildTimelineItems(
           lineName: isTransit
             ? leg.route_long_name || leg.route_short_name || leg.agency_name
             : undefined,
-          lineColor: '#6E8F8A',
+          lineColor: leg.route_color || '#6E8F8A',
           walk: mode === 'WALK' ? `${leg.duration_minutes}分` : undefined,
           past: isPast(leg.departure_time),
           iconName: modeIcon,

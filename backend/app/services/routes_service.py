@@ -11,7 +11,16 @@ from app.models.schedule import Schedule
 from app.models.schedule_route import ScheduleRoute
 from app.models.user import UserSettings
 from app.schemas.routes import DepartureTimeRequest, RouteSearchRequest, ScheduleRouteCreate
-from app.services import otp2_client
+from app.services import otp2_client, transit_line_cache
+
+
+async def _enrich_itineraries(db: AsyncSession, itineraries: list[dict]) -> None:
+    """Enrich each leg with transit_line_id and route_color from cache."""
+    for itinerary in itineraries:
+        for leg in itinerary.get("legs", []):
+            match = await transit_line_cache.lookup(db, leg.get("route_long_name"))
+            leg["transit_line_id"] = match["transit_line_id"]
+            leg["route_color"] = match["route_color"]
 
 
 async def _get_user_settings(db: AsyncSession, user_id: int) -> UserSettings:
@@ -52,6 +61,8 @@ async def search_routes(db: AsyncSession, user_id: int, data: RouteSearchRequest
         arrival_time=arrival_time_str,
     )
 
+    await _enrich_itineraries(db, itineraries)
+
     return {"itineraries": itineraries}
 
 
@@ -69,6 +80,8 @@ async def calculate_departure_time(db: AsyncSession, user_id: int, data: Departu
         travel_mode=data.travel_mode,
         arrival_time=data.arrival_time.isoformat(),
     )
+
+    await _enrich_itineraries(db, itineraries)
 
     from datetime import datetime
 
