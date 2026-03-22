@@ -33,7 +33,11 @@ const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 type CategoryUI =
   | { color: string; icon: React.ComponentProps<typeof Ionicons>['name']; iconSet: 'ionicons' }
   | { color: string; icon: React.ComponentProps<typeof FontAwesome5>['name']; iconSet: 'fa5' }
-  | { color: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; iconSet: 'mci' };
+  | {
+      color: string;
+      icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+      iconSet: 'mci';
+    };
 
 const CATEGORY_UI_MAP: Record<string, CategoryUI> = {
   休日: { color: C.holiday, icon: 'bicycle', iconSet: 'ionicons' },
