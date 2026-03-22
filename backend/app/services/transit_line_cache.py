@@ -10,6 +10,8 @@ from app.models.transit_line import TransitLine
 logger = logging.getLogger(__name__)
 
 # Module-level cache: name_ja -> {transit_line_id, route_color}
+# NOTE: name_ja is not unique in DB, but OTP route_long_name matches name_ja
+# well enough for color lookup. If duplicates exist, the first match wins.
 _cache: dict[str, dict[str, int | str | None]] = {}
 _loaded: bool = False
 
@@ -18,10 +20,13 @@ async def _load_cache(db: AsyncSession) -> None:
     global _cache, _loaded
     result = await db.execute(select(TransitLine))
     lines = result.scalars().all()
-    _cache = {
-        line.name_ja: {"transit_line_id": line.id, "route_color": line.color}
-        for line in lines
-    }
+    _cache = {}
+    for line in lines:
+        # Keep first entry for duplicate name_ja (avoid silent overwrite)
+        if line.name_ja not in _cache:
+            _cache[line.name_ja] = {"transit_line_id": line.id, "route_color": line.color}
+        else:
+            logger.warning("Duplicate name_ja '%s' (id=%d), skipping", line.name_ja, line.id)
     _loaded = True
     logger.info("Transit line cache loaded: %d entries", len(_cache))
 

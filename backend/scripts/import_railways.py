@@ -8,9 +8,8 @@ Usage:
 """
 
 import asyncio
-import json
-import urllib.request
 
+import httpx
 from sqlalchemy import select
 
 from app.database import async_session, engine
@@ -21,8 +20,14 @@ RAILWAYS_URL = "https://raw.githubusercontent.com/nagix/mini-tokyo-3d/master/dat
 
 async def import_railways() -> None:
     print(f"Fetching railways.json from {RAILWAYS_URL} ...")
-    with urllib.request.urlopen(RAILWAYS_URL) as resp:
-        data = json.loads(resp.read().decode())
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(RAILWAYS_URL, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as e:
+        print(f"Error fetching railways.json: {e}")
+        return
 
     print(f"Found {len(data)} railways.")
 
