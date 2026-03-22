@@ -62,7 +62,12 @@ export function buildTimelineItems(
   // Schedules and Routes
   schedules.forEach((s, idx) => {
     const fullRoute = routes[s.id];
-    if (fullRoute && fullRoute.route_data && fullRoute.route_data.legs && fullRoute.route_data.legs.length > 0) {
+    if (
+      fullRoute &&
+      fullRoute.route_data &&
+      fullRoute.route_data.legs &&
+      fullRoute.route_data.legs.length > 0
+    ) {
       fullRoute.route_data.legs.forEach((leg, legIdx) => {
         let fromName = leg.from_name;
         if (legIdx === 0) {
