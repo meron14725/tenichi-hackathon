@@ -1,37 +1,202 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons, Feather } from '@expo/vector-icons';
+
 import OwlChatBubble from '@/components/owl-chat-bubble';
 import TodoCard from '@/components/todo-card';
+import ScheduleMapModal, { MapPin } from '@/components/schedule-map-modal';
+import WeatherTrainBar from '@/components/weather-train-bar';
+import TimelineView from '@/components/timeline-view';
+import AdviceOwlCard from '@/components/advice-owl-card';
 
-const C = {
-  headerBg: '#436F9B',
-  primary: '#436F9B',
-  accent: '#6E8F8A',
-  weatherBg: '#EDF0F2',
-  trainBg: '#EEF0F1',
-  textPrimary: '#1F2528',
-  textSecondary: '#63747E',
-  black: '#000000',
-  white: '#FFFFFF',
-  warmText: '#AA8A5E',
-};
+import { scheduleListApi, ScheduleListResponse } from '@/api/scheduleListApi';
+import { scheduleApi, ScheduleResponse, ScheduleRouteFullResponse } from '@/api/scheduleApi';
+import { userApi, UserSettingsResponse } from '@/api/userApi';
+import { suggestionApi, TodaySuggestionResponse } from '@/api/suggestionApi';
+import { weatherApi, WeatherForecastDay } from '@/api/weatherApi';
+
+import { AppColors as C } from '@/constants/app-colors';
+import { getJPDay } from '@/utils/date-utils';
+import { buildTimelineItems } from '@/utils/timeline-helper';
 
 export default function ScheduleIndexScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  const [scheduleList, setScheduleList] = useState<ScheduleListResponse | null>(null);
+  const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
+  const [routes, setRoutes] = useState<Record<number, ScheduleRouteFullResponse>>({});
+  const [userSettings, setUserSettings] = useState<UserSettingsResponse | null>(null);
+  const [suggestionData, setSuggestionData] = useState<TodaySuggestionResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [mapVisible, setMapVisible] = useState(false);
+  const [weatherMap, setWeatherMap] = useState<Record<string, WeatherForecastDay>>({});
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!id) return;
+      try {
+        setLoading(true);
+        const [settings, listData] = await Promise.all([
+          userApi.getSettings(),
+          scheduleListApi.getById(Number(id)),
+        ]);
+        setUserSettings(settings);
+        setScheduleList(listData);
+
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        if (listData.date === dateStr) {
+          suggestionApi
+            .getToday()
+            .then(setSuggestionData)
+            .catch(() => null);
+        }
+
+        if (listData.schedules.length > 0) {
+          const details = await Promise.all(listData.schedules.map(s => scheduleApi.getById(s.id)));
+          details.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+          setSchedules(details);
+
+          const routePromises = details
+            .filter(s => s.selected_route)
+            .map(s => scheduleApi.getRoute(s.id));
+          const routeResults = await Promise.all(routePromises);
+          const routeMap: Record<number, ScheduleRouteFullResponse> = {};
+          routeResults.forEach(r => {
+            routeMap[r.schedule_id] = r;
+          });
+          setRoutes(routeMap);
+
+          const weatherLocations: { lat: number; lon: number }[] = [];
+          if (listData.departure_lat != null && listData.departure_lng != null) {
+            weatherLocations.push({ lat: listData.departure_lat, lon: listData.departure_lng });
+          }
+          details.forEach(s => {
+            if (s.destination_lat != null && s.destination_lon != null) {
+              weatherLocations.push({ lat: s.destination_lat, lon: s.destination_lon });
+            }
+          });
+
+          const uniqueLocs = Array.from(
+            new Set(weatherLocations.map(l => `${l.lat},${l.lon}`))
+          ).map(s => {
+            const [lat, lon] = s.split(',').map(Number);
+            return { lat, lon };
+          });
+
+          const weatherResults = await Promise.all(
+            uniqueLocs.map(l => weatherApi.getForecast(l.lat, l.lon).catch(() => null))
+          );
+          const newWeatherMap: Record<string, WeatherForecastDay> = {};
+          weatherResults.forEach((res, i) => {
+            if (res && res.forecast.length > 0) {
+              const loc = uniqueLocs[i];
+              const targetDayWeather =
+                res.forecast.find(f => f.date === listData.date) || res.forecast[0];
+              newWeatherMap[`${loc.lat},${loc.lon}`] = targetDayWeather;
+            }
+          });
+          setWeatherMap(newWeatherMap);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [id]);
+
+  async function handleToggleTodo(itemId: number) {
+    if (!scheduleList) return;
+    const item = scheduleList.packing_items.find(i => i.id === itemId);
+    if (!item) return;
+    try {
+      const updated = await scheduleListApi.updatePackingItem(scheduleList.id, itemId, {
+        is_checked: !item.is_checked,
+      });
+      setScheduleList(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          packing_items: prev.packing_items.map(i => (i.id === itemId ? updated : i)),
+        };
+      });
+    } catch (error) {
+      console.error('Failed to toggle packing item:', error);
+    }
+  }
+
+  function getMapPins(): MapPin[] {
+    const pins: MapPin[] = [];
+    if (scheduleList?.departure_lat != null && scheduleList?.departure_lng != null) {
+      pins.push({
+        lat: scheduleList.departure_lat,
+        lng: scheduleList.departure_lng,
+        label: scheduleList.departure_name || '出発地点',
+        color: '#E74C3C',
+      });
+    }
+    schedules.forEach(s => {
+      if (s.destination_lat != null && s.destination_lon != null) {
+        pins.push({
+          lat: s.destination_lat,
+          lng: s.destination_lon,
+          label: s.destination_name || s.title,
+          color: '#436F9B',
+        });
+      }
+    });
+    return pins;
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingCenter]}>
+        <ActivityIndicator color={C.white} size="large" />
+      </View>
+    );
+  }
+
+  const timelineItems = buildTimelineItems(
+    schedules,
+    routes,
+    userSettings,
+    weatherMap,
+    scheduleList
+  );
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color={C.white} />
-          <Text style={styles.backText}>カレンダー</Text>
-        </TouchableOpacity>
-        <OwlChatBubble message="スケジュールを登録しよう！" />
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={22} color={C.white} />
+            <Text style={styles.backText}>カレンダー</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuButton}>
+            <Feather name="more-horizontal" size={20} color={C.white} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.owlLayer}>
+          <OwlChatBubble
+            message={
+              suggestionData?.suggestion ||
+              (scheduleList ? `${scheduleList.name}の準備は整いましたか？` : '読み込み中です...')
+            }
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -40,127 +205,140 @@ export default function ScheduleIndexScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mainContent}>
-          <TodoCard todos={[]} />
+          <TodoCard
+            todos={(scheduleList?.packing_items || []).map(item => ({
+              id: item.id,
+              label: item.name,
+              checked: item.is_checked,
+            }))}
+            onToggle={handleToggleTodo}
+          />
 
-          {/* Weather + Train */}
-          <View style={styles.infoRow}>
-            <View style={styles.weatherCard}>
-              <Ionicons name="cloud" size={23} color={C.textSecondary} />
-              <Text style={styles.weatherTemp}>18℃ / 12℃</Text>
-              <Text style={styles.weatherNote}>午後から雨</Text>
+          <WeatherTrainBar weatherMap={weatherMap} schedules={schedules} routes={routes} />
+
+          {/* Schedule Header */}
+          <View style={styles.scheduleHeaderRow}>
+            <View style={styles.scheduleHeaderLeft}>
+              <Text style={styles.scheduleDate}>
+                {scheduleList
+                  ? `${new Date(scheduleList.date).getMonth() + 1}/${new Date(scheduleList.date).getDate()} (${getJPDay(scheduleList.date)})`
+                  : ''}
+              </Text>
+              <Text style={styles.scheduleTitle}>{scheduleList?.name || '予定がありません'}</Text>
             </View>
-            <View style={styles.trainCard}>
-              <MaterialCommunityIcons
-                name="chart-timeline-variant"
-                size={28}
-                color={C.textPrimary}
-              />
-              <Text style={styles.trainTime}>スケジュール未定</Text>
-            </View>
-          </View>
-
-          {/* Schedule title */}
-          <Text style={styles.scheduleTitle}>3/6 (金)の予定</Text>
-
-          {/* Routine card */}
-          <View style={styles.routineCard}>
-            <View style={styles.routineInner}>
-              <MaterialCommunityIcons name="bike" size={20} color={C.accent} />
-              <View style={styles.routineTextWrap}>
-                <Text style={styles.routineTitle}>友達と一日遊ぶ日</Text>
-                <Text style={styles.routineMemo}>お店の予約をする！</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* CTA */}
-          <View style={styles.ctaSection}>
-            <Text style={styles.ctaText}>スケジュールを追加しよう！</Text>
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={() => router.push('/schedule/unit/register')}
-            >
-              <Ionicons name="add" size={20} color={C.white} />
-              <Text style={styles.registerButtonText}>スケジュール追加</Text>
+            <TouchableOpacity style={styles.mapButton} onPress={() => setMapVisible(true)}>
+              <Ionicons name="map-outline" size={14} color={C.textSecondary} />
+              <Text style={styles.mapButtonText}>マップ</Text>
             </TouchableOpacity>
           </View>
+
+          <TimelineView
+            items={timelineItems}
+            onPressItem={item => {
+              if (item.scheduleId) {
+                router.push({
+                  pathname: '/schedule/unit/edit',
+                  params: {
+                    schedule_id: item.scheduleId.toString(),
+                    schedule_list_id: scheduleList?.id?.toString(),
+                  },
+                });
+              }
+            }}
+          />
+
+          <AdviceOwlCard title="予定を確認！" subtitle="忘れ物がないかチェックしましょう！" />
         </View>
       </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={[styles.fab, { bottom: 30 + insets.bottom }]}
+        onPress={() => {
+          if (scheduleList) {
+            router.push({
+              pathname: '/schedule/unit/register',
+              params: { schedule_list_id: String(scheduleList.id) },
+            });
+          }
+        }}
+      >
+        <Ionicons name="add" size={28} color={C.white} />
+      </TouchableOpacity>
+
+      <ScheduleMapModal
+        visible={mapVisible}
+        onClose={() => setMapVisible(false)}
+        pins={getMapPins()}
+        title={scheduleList?.name || 'ルート情報'}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.headerBg },
-  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, paddingBottom: 60, gap: 12 },
-  backButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  loadingCenter: { justifyContent: 'center', alignItems: 'center' },
+  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, gap: 8 },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  backButton: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 35 },
   backText: { fontSize: 14, fontWeight: '500', color: C.white },
+  menuButton: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  owlLayer: { marginTop: -10 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingBottom: 100 },
+  scrollContent: {},
   mainContent: {
     backgroundColor: C.white,
     paddingHorizontal: 14,
     paddingTop: 17.5,
     paddingBottom: 17.5,
     gap: 17.5,
-    minHeight: 600,
-    marginTop: -30,
+    minHeight: 800,
   },
-
-  // Info row
-  infoRow: { flexDirection: 'row', gap: 17.5 },
-  weatherCard: {
-    flex: 1,
-    backgroundColor: C.weatherBg,
-    borderRadius: 7,
-    paddingVertical: 7,
-    paddingHorizontal: 12.25,
-    alignItems: 'center',
-    gap: 7,
+  scheduleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
-  weatherTemp: { fontSize: 12.25, fontWeight: '500', color: C.textPrimary },
-  weatherNote: { fontSize: 12.25, fontWeight: '500', color: C.warmText },
-  trainCard: {
-    flex: 1,
-    backgroundColor: C.trainBg,
-    borderRadius: 7,
-    paddingVertical: 7,
-    paddingHorizontal: 12.25,
-    alignItems: 'center',
-    gap: 7,
-  },
-  trainTime: { fontSize: 12.25, fontWeight: '500', color: C.textPrimary },
-
-  // Schedule
+  scheduleHeaderLeft: { gap: 2 },
+  scheduleDate: { fontSize: 12.25, fontWeight: '500', color: C.textSecondary },
   scheduleTitle: { fontSize: 17.5, fontWeight: '700', color: C.black },
-
-  // Routine
-  routineCard: {
-    borderWidth: 1,
-    borderColor: C.accent,
-    borderRadius: 7,
-    borderLeftWidth: 6,
-    borderLeftColor: C.accent,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  routineInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  routineTextWrap: { flex: 1, gap: 4 },
-  routineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-  routineMemo: { fontSize: 12.25, fontWeight: '400', color: C.textSecondary },
-
-  // CTA
-  ctaSection: { alignItems: 'center', gap: 14, paddingVertical: 20 },
-  ctaText: { fontSize: 14, fontWeight: '500', color: C.textSecondary },
-  registerButton: {
+  mapButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 4,
-    backgroundColor: C.primary,
+    borderWidth: 1,
+    borderColor: C.textMuted,
     borderRadius: 10000,
-    paddingHorizontal: 40,
-    paddingVertical: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  registerButtonText: { fontSize: 14, fontWeight: '700', color: C.white },
+  mapButtonText: { fontSize: 12.25, fontWeight: '500', color: C.textSecondary },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.fabBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
 });
