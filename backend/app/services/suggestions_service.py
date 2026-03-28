@@ -12,9 +12,7 @@ from app.exceptions import AppError
 from app.models.schedule import Schedule
 from app.models.suggestion_cache import SuggestionCache
 from app.models.user import User, UserSettings
-from app.models.weather_cache import WeatherCache
 from app.services import gemini_service, weather_service
-from app.services.prefecture import find_nearest_prefecture
 
 logger = logging.getLogger(__name__)
 
@@ -64,69 +62,6 @@ def _format_schedule_for_prompt(schedule: Schedule) -> str:
     return "\n".join(parts)
 
 
-def _collect_prefecture_codes(
-    schedules: list[Schedule],
-    user_settings: UserSettings | None,
-) -> list[str]:
-    """スケジュールの目的地から都道府県コードを収集する。目的地がなければ自宅を使用."""
-    codes = []
-    for s in schedules:
-        if s.destination_lat and s.destination_lon:
-            code = find_nearest_prefecture(float(s.destination_lat), float(s.destination_lon))
-            codes.append(code)
-
-    if not codes and user_settings and user_settings.home_lat and user_settings.home_lon:
-        codes.append(
-            find_nearest_prefecture(float(user_settings.home_lat), float(user_settings.home_lon))
-        )
-
-    return codes
-
-
-async def _get_worst_weather_suggestion(
-    db: AsyncSession,
-    prefecture_codes: list[str],
-    today: dt.date,
-) -> dict | None:
-    """指定された都道府県コードの中で最も天気が悪い場所のキャッシュ済み提案を返す."""
-    if not prefecture_codes:
-        return None
-
-    unique_codes = list(set(prefecture_codes))
-
-    # 最悪天気の都道府県を取得
-    result = await db.execute(
-        select(WeatherCache)
-        .where(
-            WeatherCache.target_date == today,
-            WeatherCache.prefecture_code.in_(unique_codes),
-        )
-        .order_by(WeatherCache.weather_severity.desc())
-        .limit(1)
-    )
-    worst_weather = result.scalar_one_or_none()
-
-    if worst_weather is None:
-        return None
-
-    # 対応するサジェスションキャッシュを取得
-    suggestion_result = await db.execute(
-        select(SuggestionCache).where(
-            SuggestionCache.prefecture_code == worst_weather.prefecture_code,
-            SuggestionCache.target_date == today,
-        )
-    )
-    suggestion_cache = suggestion_result.scalar_one_or_none()
-
-    if suggestion_cache is None:
-        return None
-
-    return {
-        "suggestion": suggestion_cache.suggestion_text,
-        "weather_summary": suggestion_cache.weather_summary_json,
-    }
-
-
 async def _fallback_realtime_suggestion(
     user_settings: UserSettings | None,
     schedules: list[Schedule],
@@ -172,7 +107,22 @@ async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
     tz = ZoneInfo(user_settings.timezone if user_settings else "Asia/Tokyo")
     today = dt.datetime.now(tz).date()
 
-    # 今日のスケジュールを取得
+    # キャッシュ確認: user_id + today で直接引く
+    cache_result = await db.execute(
+        select(SuggestionCache).where(
+            SuggestionCache.user_id == user.id,
+            SuggestionCache.target_date == today,
+        )
+    )
+    cached = cache_result.scalar_one_or_none()
+    if cached:
+        return {
+            "date": today.isoformat(),
+            "suggestion": cached.suggestion_text,
+            "weather_summary": cached.weather_summary_json,
+        }
+
+    # 今日のスケジュールを取得（フォールバック用）
     stmt = (
         select(Schedule)
         .options(selectinload(Schedule.tags))
@@ -186,19 +136,7 @@ async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
     schedules_result = await db.execute(stmt)
     schedules = list(schedules_result.scalars().all())
 
-    # 目的地から都道府県コードを収集
-    prefecture_codes = _collect_prefecture_codes(schedules, user_settings)
-
-    # キャッシュから最悪天気の提案を取得
-    cached = await _get_worst_weather_suggestion(db, prefecture_codes, today)
-    if cached:
-        return {
-            "date": today.isoformat(),
-            "suggestion": cached["suggestion"],
-            "weather_summary": cached["weather_summary"],
-        }
-
-    # フォールバック: 従来のリアルタイム生成
+    # フォールバック: リアルタイム生成
     logger.info("Cache miss for user %s, falling back to realtime generation", user.id)
     try:
         return await _fallback_realtime_suggestion(user_settings, schedules, today)

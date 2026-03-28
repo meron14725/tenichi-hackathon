@@ -159,39 +159,21 @@ class TestSuggestionsCacheIntegration:
 
     async def test_today_suggestion_uses_cache(self, client):
         """キャッシュがある場合はキャッシュから返す."""
-        from tests.conftest import auth_headers
+        from tests.conftest import register_user
 
-        headers = await auth_headers(client)
-
-        # ユーザー設定で自宅座標を設定（東京付近 → 都道府県コード "13"）
-        # conftest.pyのREGISTER_DATAで home_lat=35.6584, home_lon=139.7015 が設定済み
-
-        # weather_cache と suggestion_cache を直接DBに挿入
-        from sqlalchemy.ext.asyncio import AsyncSession
+        result = await register_user(client, "cache_test@example.com")
+        user_id = result["user"]["id"]
+        headers = {"Authorization": f"Bearer {result['access_token']}"}
 
         from app.database import get_db
         from app.main import app
         from app.models.suggestion_cache import SuggestionCache
-        from app.models.weather_cache import WeatherCache
 
         today = dt.datetime.now(dt.timezone.utc).date()
 
-        # get_dbの上書きを使ってDBにキャッシュを挿入
         async for db in app.dependency_overrides[get_db]():
-            db.add(WeatherCache(
-                prefecture_code="13",
-                prefecture_name="東京都",
-                target_date=today,
-                temp_c=15.0,
-                condition="Cloudy",
-                precip_mm=2.0,
-                chance_of_rain=60,
-                humidity=70,
-                wind_kph=10.0,
-                weather_severity=30,
-            ))
             db.add(SuggestionCache(
-                prefecture_code="13",
+                user_id=user_id,
                 target_date=today,
                 suggestion_text="折りたたみ傘をお持ちください。",
                 weather_summary_json={
@@ -214,7 +196,7 @@ class TestSuggestionsCacheIntegration:
         """キャッシュがない場合はリアルタイム生成にフォールバック."""
         from tests.conftest import auth_headers
 
-        headers = await auth_headers(client)
+        headers = await auth_headers(client, "fallback_test@example.com")
 
         mock_weather.return_value = {
             "temp_c": 20.0,
@@ -236,68 +218,3 @@ class TestSuggestionsCacheIntegration:
         assert resp.status_code == 200
         data = resp.json()
         assert data["suggestion"] == "日焼け止めを忘れずに。"
-
-    async def test_today_suggestion_worst_weather_destination(self, client):
-        """複数の目的地がある場合、最悪天気の都道府県の提案を返す."""
-        from tests.conftest import auth_headers
-
-        headers = await auth_headers(client)
-        today = dt.datetime.now(dt.timezone.utc).date()
-
-        # スケジュールを作成（東京と大阪に目的地あり）
-        schedule_tokyo = {
-            "title": "東京ミーティング",
-            "start_at": f"{today}T10:00:00+09:00",
-            "destination_name": "東京駅",
-            "destination_lat": 35.6812,
-            "destination_lon": 139.7671,
-            "tag_ids": [],
-        }
-        schedule_osaka = {
-            "title": "大阪出張",
-            "start_at": f"{today}T14:00:00+09:00",
-            "destination_name": "大阪駅",
-            "destination_lat": 34.7025,
-            "destination_lon": 135.4959,
-            "tag_ids": [],
-        }
-        await client.post("/api/v1/schedules", json=schedule_tokyo, headers=headers)
-        await client.post("/api/v1/schedules", json=schedule_osaka, headers=headers)
-
-        # 天気キャッシュ: 大阪の方が天気が悪い
-        from app.database import get_db
-        from app.main import app
-        from app.models.suggestion_cache import SuggestionCache
-        from app.models.weather_cache import WeatherCache
-
-        async for db in app.dependency_overrides[get_db]():
-            db.add(WeatherCache(
-                prefecture_code="13", prefecture_name="東京都",
-                target_date=today, temp_c=20.0, condition="Sunny",
-                precip_mm=0.0, chance_of_rain=10, humidity=40,
-                wind_kph=5.0, weather_severity=5,
-            ))
-            db.add(WeatherCache(
-                prefecture_code="27", prefecture_name="大阪府",
-                target_date=today, temp_c=12.0, condition="Heavy rain",
-                precip_mm=15.0, chance_of_rain=90, humidity=85,
-                wind_kph=25.0, weather_severity=75,
-            ))
-            db.add(SuggestionCache(
-                prefecture_code="13", target_date=today,
-                suggestion_text="日焼け止めを塗りましょう。",
-                weather_summary_json={"temp_c": 20.0, "condition": "Sunny", "chance_of_rain": 10},
-            ))
-            db.add(SuggestionCache(
-                prefecture_code="27", target_date=today,
-                suggestion_text="大雨です。傘と長靴を持っていきましょう。",
-                weather_summary_json={"temp_c": 12.0, "condition": "Heavy rain", "chance_of_rain": 90},
-            ))
-            await db.commit()
-
-        resp = await client.get("/api/v1/suggestions/today", headers=headers)
-        assert resp.status_code == 200
-        data = resp.json()
-        # 大阪（severity=75）の方が天気が悪いので大阪の提案が返る
-        assert data["suggestion"] == "大雨です。傘と長靴を持っていきましょう。"
-        assert data["weather_summary"]["condition"] == "Heavy rain"
