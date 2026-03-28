@@ -32,8 +32,6 @@ export default function AdviceOwlCard({
 
 const styles = StyleSheet.create({
   adviceCard: {
-    // TODO: 提出用対応のため非表示
-    display: 'none',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
