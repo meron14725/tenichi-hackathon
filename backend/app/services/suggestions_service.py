@@ -200,7 +200,15 @@ async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
 
     # フォールバック: 従来のリアルタイム生成
     logger.info("Cache miss for user %s, falling back to realtime generation", user.id)
-    return await _fallback_realtime_suggestion(user_settings, schedules, today)
+    try:
+        return await _fallback_realtime_suggestion(user_settings, schedules, today)
+    except Exception:
+        logger.exception("All suggestion generation failed for user %s", user.id)
+        return {
+            "date": today.isoformat(),
+            "suggestion": "今日も1日頑張りましょう！",
+            "weather_summary": None,
+        }
 
 
 async def get_schedule_suggestion(db: AsyncSession, user: User, schedule_id: int) -> dict:

@@ -18,36 +18,45 @@ from app.services import gemini_service
 logger = logging.getLogger(__name__)
 
 _CONCURRENCY = 5
+_MAX_RETRIES = 2
+_RETRY_DELAY = 2.0
 
 
 async def _generate_suggestion_for_weather(weather: WeatherCache) -> dict | None:
-    """1都道府県の天気からLLM文言を生成する."""
-    try:
-        suggestion = await gemini_service.generate_weather_suggestion(
-            prefecture_name=weather.prefecture_name,
-            condition=weather.condition,
-            temp_c=weather.temp_c,
-            chance_of_rain=weather.chance_of_rain,
-            humidity=weather.humidity,
-            wind_kph=weather.wind_kph,
-            precip_mm=weather.precip_mm,
-        )
-        return {
-            "prefecture_code": weather.prefecture_code,
-            "target_date": weather.target_date,
-            "suggestion_text": suggestion,
-            "weather_summary_json": {
-                "temp_c": weather.temp_c,
-                "condition": weather.condition,
-                "chance_of_rain": weather.chance_of_rain,
-            },
-        }
-    except Exception:
-        logger.exception(
-            "Failed to generate suggestion for %s (%s)",
-            weather.prefecture_name,
-            weather.prefecture_code,
-        )
+    """1都道府県の天気からLLM文言を生成する。失敗時はリトライし、最終的にNoneを返す."""
+    for attempt in range(_MAX_RETRIES):
+        try:
+            suggestion = await gemini_service.generate_weather_suggestion(
+                prefecture_name=weather.prefecture_name,
+                condition=weather.condition,
+                temp_c=weather.temp_c,
+                chance_of_rain=weather.chance_of_rain,
+                humidity=weather.humidity,
+                wind_kph=weather.wind_kph,
+                precip_mm=weather.precip_mm,
+            )
+            return {
+                "prefecture_code": weather.prefecture_code,
+                "target_date": weather.target_date,
+                "suggestion_text": suggestion,
+                "weather_summary_json": {
+                    "temp_c": weather.temp_c,
+                    "condition": weather.condition,
+                    "chance_of_rain": weather.chance_of_rain,
+                },
+            }
+        except Exception:
+            if attempt < _MAX_RETRIES - 1:
+                logger.warning(
+                    "Retrying suggestion generation for %s (%s), attempt %d",
+                    weather.prefecture_name, weather.prefecture_code, attempt + 1,
+                )
+                await asyncio.sleep(_RETRY_DELAY)
+            else:
+                logger.exception(
+                    "Failed to generate suggestion for %s (%s) after %d attempts",
+                    weather.prefecture_name, weather.prefecture_code, _MAX_RETRIES,
+                )
     return None
 
 

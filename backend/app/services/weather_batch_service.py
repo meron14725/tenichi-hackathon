@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 # 同時並列数（WeatherAPI レート制限 10req/s に対し余裕を持つ）
 _CONCURRENCY = 5
+_MAX_RETRIES = 2
+_RETRY_DELAY = 2.0
 
 
 async def _fetch_prefecture_weather(
@@ -29,37 +31,48 @@ async def _fetch_prefecture_weather(
     lon: float,
     target_date: str,
 ) -> dict | None:
-    """1都道府県の天気を取得する。失敗時はNoneを返す."""
-    try:
-        q = f"{lat},{lon}"
-        data = await fetch_forecast_raw(q, days=1, target_date=target_date)
-        forecast_days = data["forecast"]["forecastday"]
-        for day in forecast_days:
-            if day["date"] == target_date:
-                location = build_location(data)
-                weather = build_day_weather(day, location)
-                severity = calc_weather_severity(
-                    weather["chance_of_rain"],
-                    weather["precip_mm"],
-                    weather["wind_kph"],
-                    weather["condition"],
+    """1都道府県の天気を取得する。失敗時はリトライし、最終的にNoneを返す."""
+    for attempt in range(_MAX_RETRIES):
+        try:
+            q = f"{lat},{lon}"
+            data = await fetch_forecast_raw(q, days=1, target_date=target_date)
+            forecast_days = data["forecast"]["forecastday"]
+            for day in forecast_days:
+                if day["date"] == target_date:
+                    location = build_location(data)
+                    weather = build_day_weather(day, location)
+                    severity = calc_weather_severity(
+                        weather["chance_of_rain"],
+                        weather["precip_mm"],
+                        weather["wind_kph"],
+                        weather["condition"],
+                    )
+                    return {
+                        "prefecture_code": code,
+                        "prefecture_name": name,
+                        "target_date": target_date,
+                        "temp_c": weather["temp_c"],
+                        "condition": weather["condition"],
+                        "condition_icon_url": weather["condition_icon_url"],
+                        "precip_mm": weather["precip_mm"],
+                        "chance_of_rain": weather["chance_of_rain"],
+                        "humidity": weather["humidity"],
+                        "wind_kph": weather["wind_kph"],
+                        "weather_severity": severity,
+                        "raw_response": json.dumps(data, ensure_ascii=False),
+                    }
+        except Exception:
+            if attempt < _MAX_RETRIES - 1:
+                logger.warning(
+                    "Retrying weather fetch for %s (%s), attempt %d",
+                    name, code, attempt + 1,
                 )
-                return {
-                    "prefecture_code": code,
-                    "prefecture_name": name,
-                    "target_date": target_date,
-                    "temp_c": weather["temp_c"],
-                    "condition": weather["condition"],
-                    "condition_icon_url": weather["condition_icon_url"],
-                    "precip_mm": weather["precip_mm"],
-                    "chance_of_rain": weather["chance_of_rain"],
-                    "humidity": weather["humidity"],
-                    "wind_kph": weather["wind_kph"],
-                    "weather_severity": severity,
-                    "raw_response": json.dumps(data, ensure_ascii=False),
-                }
-    except Exception:
-        logger.exception("Failed to fetch weather for %s (%s)", name, code)
+                await asyncio.sleep(_RETRY_DELAY)
+            else:
+                logger.exception(
+                    "Failed to fetch weather for %s (%s) after %d attempts",
+                    name, code, _MAX_RETRIES,
+                )
     return None
 
 
