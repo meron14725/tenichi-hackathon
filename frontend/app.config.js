@@ -5,9 +5,13 @@ export default ({ config }) => {
     ...config,
     name: env === 'production' ? 'セバス・ホー' : `セバス・ホー (${env})`,
     slug: 'frontend',
+    scheme: 'sebasu-hoo',
     ios: {
       ...config.ios,
-      bundleIdentifier: env === 'production' ? 'com.yourname.sebasu' : `com.yourname.sebasu.${env}`,
+      bundleIdentifier: env === 'production' ? 'com.hoo.sebasu' : `com.hoo.sebasu.${env}`,
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     updates: {
       url: 'https://u.expo.dev/dfe53b5d-1359-4896-b65a-8426048bbd3d',
@@ -22,9 +26,12 @@ export default ({ config }) => {
     web: {
       ...(config.web || {}),
     },
-    plugins: [...(config.plugins || [])],
+    plugins: [...(config.plugins || []), 'expo-router', 'expo-secure-store'],
     extra: {
       env: env,
+      eas: {
+        projectId: 'dfe53b5d-1359-4896-b65a-8426048bbd3d',
+      },
     },
   };
 };
