@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.weather_cache import WeatherCache
 from app.services.prefecture import PREFECTURES, calc_weather_severity
-from app.services.weather_service import _build_day_weather, _build_location, _fetch_forecast
+from app.services.weather_service import build_day_weather, build_location, fetch_forecast_raw
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +32,12 @@ async def _fetch_prefecture_weather(
     """1都道府県の天気を取得する。失敗時はNoneを返す."""
     try:
         q = f"{lat},{lon}"
-        data = await _fetch_forecast(q, days=1, target_date=target_date)
+        data = await fetch_forecast_raw(q, days=1, target_date=target_date)
         forecast_days = data["forecast"]["forecastday"]
         for day in forecast_days:
             if day["date"] == target_date:
-                location = _build_location(data)
-                weather = _build_day_weather(day, location)
+                location = build_location(data)
+                weather = build_day_weather(day, location)
                 severity = calc_weather_severity(
                     weather["chance_of_rain"],
                     weather["precip_mm"],

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 WEATHERAPI_BASE = "https://api.weatherapi.com/v1"
 
 
-async def _fetch_forecast(
+async def fetch_forecast_raw(
     q: str,
     days: int = 3,
     target_date: str | None = None,
@@ -72,12 +72,12 @@ async def _fetch_forecast(
         ) from exc
 
 
-def _build_location(data: dict) -> dict:
+def build_location(data: dict) -> dict:
     loc = data["location"]
     return {"name": loc["name"], "lat": loc["lat"], "lon": loc["lon"]}
 
 
-def _build_day_weather(day: dict, location: dict) -> dict:
+def build_day_weather(day: dict, location: dict) -> dict:
     d = day["day"]
     return {
         "date": day["date"],
@@ -110,13 +110,13 @@ async def get_weather(lat: float, lon: float, date: dt.date | None = None) -> di
     target = date.isoformat() if date else dt.datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat()
     q = f"{lat},{lon}"
 
-    data = await _fetch_forecast(q, days=3, target_date=target)
+    data = await fetch_forecast_raw(q, days=3, target_date=target)
 
     try:
         forecast_days = data["forecast"]["forecastday"]
         for day in forecast_days:
             if day["date"] == target:
-                return _build_day_weather(day, _build_location(data))
+                return build_day_weather(day, build_location(data))
     except KeyError:
         logger.exception("WeatherAPI response structure error")
         raise AppError(
@@ -136,10 +136,10 @@ async def get_forecast(lat: float, lon: float) -> dict:
     """3日間の天気予報を取得する."""
     q = f"{lat},{lon}"
 
-    data = await _fetch_forecast(q, days=3)
+    data = await fetch_forecast_raw(q, days=3)
 
     try:
-        location = _build_location(data)
+        location = build_location(data)
         forecast = [_build_forecast_day(day) for day in data["forecast"]["forecastday"]]
     except KeyError:
         logger.exception("WeatherAPI response structure error")
