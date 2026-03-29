@@ -28,6 +28,6 @@ async def batch_weather(db=Depends(get_db)):  # noqa: ANN001
 
 @router.post("/suggestions")
 async def batch_suggestions(db=Depends(get_db)):  # noqa: ANN001
-    """全都道府県のLLM文言を一括生成してDBに保存する."""
+    """当日スケジュールを持つ全ユーザーのLLM文言を一括生成してDBに保存する."""
     result = await suggestion_batch_service.generate_all_suggestions(db)
     return result
