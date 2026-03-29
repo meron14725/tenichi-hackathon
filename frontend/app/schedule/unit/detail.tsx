@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -13,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
 import { scheduleApi, ScheduleResponse, ScheduleRouteFullResponse } from '@/api/scheduleApi';
 import { scheduleListApi, ScheduleSummary } from '@/api/scheduleListApi';
@@ -22,10 +22,12 @@ import TimelineView from '@/components/timeline-view';
 import { TimelineItem } from '@/lib/types/timeline';
 import { AppColors as C } from '@/constants/app-colors';
 import { formatTime } from '@/utils/date-utils';
-import { getScheduleCategoryIcon, getScheduleCategoryColor } from '@/utils/schedule-helper';
+import { getScheduleTagTheme, getScheduleCategoryColor } from '@/utils/schedule-helper';
 import { getWeatherIcon, getWeatherAdvice } from '@/utils/weather-helper';
+import { cancelNotification } from '@/utils/notifications';
 
-const owlAvatar = require('@/assets/images/owl-avatar.png');
+const owlAvatar = require('@/assets/images/owl.svg');
+const penIcon = require('@/assets/images/pen.svg');
 
 export default function ScheduleDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -120,6 +122,7 @@ export default function ScheduleDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
+            await cancelNotification(scheduleId);
             await scheduleApi.delete(scheduleId);
             router.back();
           } catch (error) {
@@ -215,10 +218,9 @@ export default function ScheduleDetailScreen() {
   }
 
   const categoryTag = schedule.tags.length > 0 ? schedule.tags[0] : null;
-  const categoryIconName = categoryTag
-    ? getScheduleCategoryIcon(categoryTag.name)
-    : 'label-outline';
-  const categoryBg = categoryTag ? getScheduleCategoryColor(categoryTag.name) : C.eventGreen;
+  const tagTheme = categoryTag ? getScheduleTagTheme(categoryTag.id) : getScheduleTagTheme(1);
+  const iconBgColor =
+    categoryTag?.id === 1 ? '#EEF3F2' : categoryTag?.id === 2 ? '#F3EFE6' : '#F0F2F4';
 
   // Aggregate weather for the card
   const displayMaxTemp = Math.max(weather?.max_temp_c ?? -99, originWeather?.max_temp_c ?? -99);
@@ -248,25 +250,24 @@ export default function ScheduleDetailScreen() {
         {/* Destination Card */}
         {schedule.destination_name && (
           <View style={styles.destinationCard}>
-            <View style={[styles.categoryIconBg, { backgroundColor: categoryBg }]}>
-              <MaterialCommunityIcons
-                name={categoryIconName as any}
-                size={24}
-                color={C.textSecondary}
+            <View style={[styles.categoryIconBg, { backgroundColor: iconBgColor }]}>
+              <Image
+                source={tagTheme.icon}
+                style={{ width: 32, height: 32 }}
+                contentFit="contain"
               />
             </View>
             <View style={styles.destinationInfo}>
               <Text style={styles.destinationName}>{schedule.destination_name}</Text>
-              {categoryTag && <Text style={styles.destinationCategory}>{categoryTag.name}</Text>}
-              {schedule.destination_address && (
-                <View style={styles.addressRow}>
-                  <Ionicons name="location-outline" size={13} color={C.textMuted} />
-                  <Text style={styles.addressText} numberOfLines={2}>
-                    {schedule.destination_address}
-                  </Text>
-                </View>
-              )}
             </View>
+          </View>
+        )}
+        {schedule.destination_address && (
+          <View style={styles.addressRow}>
+            <Ionicons name="location-outline" size={13} color={C.textSecondary} />
+            <Text style={styles.addressText} numberOfLines={2}>
+              {schedule.destination_address}
+            </Text>
           </View>
         )}
 
@@ -278,21 +279,18 @@ export default function ScheduleDetailScreen() {
               size={28}
               color={C.primary}
             />
-            <View style={styles.weatherInfo}>
-              <View style={styles.temperatureRow}>
-                <Text style={styles.weatherTemp}>
-                  {displayMaxTemp !== -99 ? Math.round(displayMaxTemp) : '--'}° /{' '}
-                  {displayMinTemp !== 99 ? Math.round(displayMinTemp) : '--'}°
-                </Text>
-                <View style={styles.rainBadge}>
-                  <Ionicons name="rainy-outline" size={14} color={C.textSecondary} />
-                  <Text style={styles.rainText}>雨 {displayMaxRain}%</Text>
-                </View>
-              </View>
-              <Text style={styles.weatherAdvice}>
-                {getWeatherAdvice(weather || originWeather || ({} as any))}
+            <View style={styles.temperatureRow}>
+              <Text style={styles.weatherTemp}>
+                {displayMaxTemp !== -99 ? Math.round(displayMaxTemp) : '--'}° /{' '}
+                {displayMinTemp !== 99 ? Math.round(displayMinTemp) : '--'}°
               </Text>
+              <View style={styles.rainBadge}>
+                <Text style={styles.rainText}>降水確率 {displayMaxRain}%</Text>
+              </View>
             </View>
+            <Text style={styles.weatherAdvice}>
+              {getWeatherAdvice(weather || originWeather || ({} as any))}
+            </Text>
           </View>
         )}
 
@@ -306,10 +304,12 @@ export default function ScheduleDetailScreen() {
         {schedule.memo && (
           <View style={styles.memoCard}>
             <View style={styles.memoHeader}>
-              <Ionicons name="checkbox" size={18} color={C.primary} />
+              <Image source={penIcon} style={styles.penIcon} contentFit="contain" />
               <Text style={styles.memoTitle}>一言メモ！</Text>
             </View>
-            <Text style={styles.memoText}>{schedule.memo}</Text>
+            <View style={styles.memoBody}>
+              <Text style={styles.memoText}>{schedule.memo}</Text>
+            </View>
           </View>
         )}
 
@@ -321,8 +321,10 @@ export default function ScheduleDetailScreen() {
             </View>
             <View style={styles.suggestionCard}>
               <View style={styles.suggestionContent}>
-                <Image source={owlAvatar} style={styles.suggestionOwl} resizeMode="contain" />
-                <Text style={styles.suggestionText}>{suggestion.suggestion}</Text>
+                <Image source={owlAvatar} style={styles.suggestionOwl} contentFit="contain" />
+                <View style={styles.suggestionTextWrapper}>
+                  <Text style={styles.suggestionText}>{suggestion.suggestion}</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -361,7 +363,7 @@ export default function ScheduleDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8F9' },
+  container: { flex: 1, backgroundColor: C.white },
   loadingCenter: { justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 14, color: C.textMuted },
   header: {
@@ -371,8 +373,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 60,
     backgroundColor: C.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF0F1',
   },
   headerTitle: {
     fontSize: 15.75,
@@ -388,37 +388,41 @@ const styles = StyleSheet.create({
   /* Destination Card */
   destinationCard: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: C.white,
     borderRadius: 12,
-    padding: 16,
+    padding: 0,
     gap: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
   categoryIconBg: {
     width: 50,
     height: 50,
     borderRadius: 10,
+    backgroundColor: '#F0F2F4',
     alignItems: 'center',
     justifyContent: 'center',
   },
   destinationInfo: { flex: 1, gap: 3 },
   destinationName: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
-  destinationCategory: { fontSize: 12, fontWeight: '500', color: C.textSecondary },
-  addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 3, marginTop: 2 },
-  addressText: { fontSize: 12, color: C.textMuted, flex: 1 },
+  destinationCategory: { fontSize: 12.25, fontWeight: '500', color: '#63747E' },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 3,
+    marginTop: 2,
+    marginBottom: 16,
+  },
+  addressText: { fontSize: 12, color: C.textSecondary, flex: 1 },
 
   /* Weather Card */
   weatherCard: {
-    flexDirection: 'row',
+    flexDirection: 'column',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#EDF0F2',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    backgroundColor: '#EEF0F1',
+    borderRadius: 7,
+    padding: 12.5,
+    paddingTop: 7,
     gap: 14,
   },
   weatherInfo: { flex: 1, gap: 4 },
@@ -474,19 +478,40 @@ const styles = StyleSheet.create({
 
   /* Memo Card */
   memoCard: {
+    borderWidth: 2,
+    borderColor: '#A8C0DD',
+    borderRadius: 14,
+    overflow: 'hidden',
     backgroundColor: C.white,
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
-  memoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  memoTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-  memoText: { fontSize: 13, color: C.textSecondary, lineHeight: 20 },
+  memoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#E6EDF6',
+    borderBottomWidth: 2,
+    borderBottomColor: '#A8C0DD',
+    paddingHorizontal: 17.5,
+    paddingVertical: 12.25,
+  },
+  penIcon: {
+    width: 24.5,
+    height: 24.5,
+  },
+  memoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2528',
+  },
+  memoBody: {
+    padding: 17.5,
+  },
+  memoText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2528',
+    lineHeight: 21,
+  },
 
   /* Menu Modal */
   modalOverlay: {
@@ -520,15 +545,7 @@ const styles = StyleSheet.create({
   suggestionWrapper: {
     marginTop: 18,
     position: 'relative',
-  },
-  suggestionCard: {
-    backgroundColor: '#EDF4FA',
-    borderWidth: 2,
-    borderColor: '#A8C0DD',
-    borderRadius: 12,
-    paddingTop: 16,
-    paddingBottom: 4,
-    paddingHorizontal: 12,
+    zIndex: 1,
   },
   suggestionBadge: {
     position: 'absolute',
@@ -541,7 +558,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 6,
     borderBottomLeftRadius: 0,
     transform: [{ skewX: '-20deg' }],
-    zIndex: 1,
+    zIndex: 2,
   },
   suggestionBadgeText: {
     color: C.white,
@@ -549,22 +566,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     transform: [{ skewX: '20deg' }], // reverse skew for text
   },
-  suggestionContent: {
+  suggestionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    backgroundColor: '#E6EDF6',
+    borderWidth: 3,
+    borderColor: '#A8C0DD',
+    borderRadius: 7,
+    paddingHorizontal: 12.25,
+    gap: 7,
+    overflow: 'hidden',
+  },
+  suggestionContent: {
+    flexDirection: 'row',
+    gap: 7,
   },
   suggestionOwl: {
-    width: 60,
-    height: 80,
-    marginBottom: -4,
+    width: 56,
+    transform: [{ translateY: 13.5 }],
   },
-  suggestionText: {
+  suggestionTextWrapper: {
     flex: 1,
-    fontSize: 13,
+    gap: 4,
+    paddingVertical: 12.25,
+  },
+  suggestionTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#1F2528',
+  },
+  suggestionText: {
+    fontSize: 12.25,
+    fontWeight: '500',
+    color: '#1F2528',
     lineHeight: 18,
-    paddingBottom: 10,
   },
 });

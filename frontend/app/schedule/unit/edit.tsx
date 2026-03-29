@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
 import { tagApi, TagResponse } from '@/api/tagApi';
 import { scheduleListApi, ScheduleListResponse } from '@/api/scheduleListApi';
@@ -22,7 +23,8 @@ import { routeApi, TravelMode, RouteSearchResponse } from '@/api/routeApi';
 import { userApi, UserSettingsResponse } from '@/api/userApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppColors as C } from '@/constants/app-colors';
-import { getScheduleCategoryIcon } from '@/utils/schedule-helper';
+import { getScheduleTagTheme } from '@/utils/schedule-helper';
+import { scheduleNotification, cancelNotification } from '@/utils/notifications';
 import TimePickerModal from '@/components/time-picker-modal';
 
 const TRAVEL_MODES: { value: TravelMode; label: string; icon: string }[] = [
@@ -90,18 +92,29 @@ export default function ScheduleEditScreen() {
       try {
         const schedule = await scheduleApi.getById(scheduleId);
 
-        // パラメータで上書きされていない場合のみ、既存データを使用
-        if (!params.title) setTitle(schedule.title);
-        if (!params.memo) setMemo(schedule.memo || '');
-        if (!params.selected_category_id)
-          setSelectedCategoryId(schedule.tags.length > 0 ? schedule.tags[0].id : null);
-        if (!params.travel_mode) setTravelMode((schedule.travel_mode as TravelMode) || 'transit');
+        // Prefer parameters from navigation (user returning from map) over stored data
+        setTitle(params.title || schedule.title);
+        setMemo(params.memo || schedule.memo || '');
+        setSelectedCategoryId(
+          params.selected_category_id
+            ? Number(params.selected_category_id)
+            : schedule.tags.length > 0
+              ? schedule.tags[0].id
+              : null
+        );
+        setTravelMode(
+          (params.travel_mode as TravelMode) || (schedule.travel_mode as TravelMode) || 'transit'
+        );
+        setUseLastTrain(params.use_last_train === 'true');
 
-        if (
-          !params.destination_lat &&
-          schedule.destination_lat != null &&
-          schedule.destination_lon != null
-        ) {
+        if (params.destination_lat && params.destination_lon) {
+          setDestination({
+            lat: parseFloat(params.destination_lat),
+            lon: parseFloat(params.destination_lon),
+            name: params.destination_name || '',
+            address: params.destination_address || '',
+          });
+        } else if (schedule.destination_lat != null && schedule.destination_lon != null) {
           setDestination({
             lat: schedule.destination_lat,
             lon: schedule.destination_lon,
@@ -110,7 +123,12 @@ export default function ScheduleEditScreen() {
           });
         }
 
-        if (!params.arrival_hour && schedule.end_at) {
+        if (params.arrival_hour && params.arrival_minute) {
+          setArrivalTime({
+            hour: Number(params.arrival_hour),
+            minute: Number(params.arrival_minute),
+          });
+        } else if (schedule.end_at) {
           const d = new Date(schedule.end_at);
           setArrivalTime({ hour: d.getHours(), minute: d.getMinutes() });
         }
@@ -146,7 +164,12 @@ export default function ScheduleEditScreen() {
     params.selected_category_id,
     params.travel_mode,
     params.destination_lat,
+    params.destination_lon,
+    params.destination_name,
+    params.destination_address,
     params.arrival_hour,
+    params.arrival_minute,
+    params.use_last_train,
   ]);
 
   useEffect(() => {
@@ -426,6 +449,9 @@ export default function ScheduleEditScreen() {
         });
       }
 
+      // Reschedule push notification with updated time
+      await scheduleNotification(title.trim(), start_at, scheduleId);
+
       router.back();
     } catch (error: any) {
       console.error('Failed to update schedule:', error);
@@ -441,6 +467,7 @@ export default function ScheduleEditScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
+            await cancelNotification(scheduleId);
             await scheduleApi.delete(scheduleId);
             router.back();
           } catch (error) {
@@ -522,28 +549,36 @@ export default function ScheduleEditScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>スケジュールの種類</Text>
               <View style={styles.categoryRow}>
-                {tags.map(tag => {
-                  const isSelected = selectedCategoryId === tag.id;
-                  const icon = getScheduleCategoryIcon(tag.name);
-                  return (
-                    <TouchableOpacity
-                      key={tag.id}
-                      style={[styles.categoryPill, isSelected && styles.categoryPillSelected]}
-                      onPress={() => setSelectedCategoryId(tag.id)}
-                    >
-                      <MaterialCommunityIcons
-                        name={icon as any}
-                        size={21}
-                        color={isSelected ? C.white : C.textSecondary}
-                      />
-                      <Text
-                        style={[styles.categoryText, isSelected && styles.categoryTextSelected]}
+                {tags
+                  .filter(tag => [1, 2, 3, 5].includes(tag.id))
+                  .map(tag => {
+                    const isSelected = selectedCategoryId === tag.id;
+                    const theme = getScheduleTagTheme(tag.id);
+                    return (
+                      <TouchableOpacity
+                        key={tag.id}
+                        style={[styles.categoryPill, isSelected && styles.categoryPillSelected]}
+                        onPress={() => setSelectedCategoryId(tag.id)}
+                        activeOpacity={0.7}
                       >
-                        {tag.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                        {isSelected && (
+                          <View style={styles.categoryCheckBg}>
+                            <Image
+                              source={require('@/assets/images/check-circle-solid.svg')}
+                              style={styles.categoryCheckIcon}
+                              contentFit="contain"
+                            />
+                          </View>
+                        )}
+                        <Image
+                          source={theme.icon}
+                          style={{ width: 21, height: 21 }}
+                          contentFit="contain"
+                        />
+                        <Text style={styles.categoryText}>{tag.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
               </View>
             </View>
 
@@ -845,19 +880,34 @@ const styles = StyleSheet.create({
     height: 45.5,
   },
   textInput: { fontSize: 14, fontWeight: '400', color: C.textPrimary },
-  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12.25 },
+  categoryRow: { flexDirection: 'row', gap: 8 },
   categoryPill: {
+    flex: 1,
+    backgroundColor: C.white,
+    borderRadius: 24,
+    paddingVertical: 10.5,
+    paddingHorizontal: 12.5,
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 7,
-    paddingVertical: 10.5,
-    paddingHorizontal: 12.25,
-    backgroundColor: C.white,
-    borderRadius: 10000,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  categoryPillSelected: { backgroundColor: C.accent },
-  categoryText: { fontSize: 12.25, fontWeight: '700', color: C.textSecondary },
-  categoryTextSelected: { color: C.white },
+  categoryPillSelected: { borderColor: C.primary },
+  categoryText: { fontSize: 12.5, fontWeight: '700', color: C.textSecondary },
+  categoryCheckBg: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: C.bg,
+    borderRadius: 12,
+  },
+  categoryCheckIcon: {
+    width: 20,
+    height: 20,
+    tintColor: C.primary,
+  },
   formButton: {
     flexDirection: 'row',
     alignItems: 'center',
