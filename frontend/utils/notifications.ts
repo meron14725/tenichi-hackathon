@@ -45,19 +45,29 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 /**
  * Schedule a local push notification 10 minutes before departure.
  *
- * @param scheduleTitle - The title of the schedule (used for notification title)
- * @param departureTime - ISO 8601 string of the departure time
+ * If a notification for the same scheduleId already exists it will be
+ * cancelled and replaced.
+ *
+ * @param scheduleTitle  - The title of the schedule (used for notification title)
+ * @param departureTime  - ISO 8601 string of the departure / start time
+ * @param scheduleId     - The schedule ID (used to track & cancel later)
  * @returns The notification identifier, or null if scheduling failed
  */
 export async function scheduleNotification(
   scheduleTitle: string,
-  departureTime: string
+  departureTime: string,
+  scheduleId?: number
 ): Promise<string | null> {
   try {
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) {
       console.warn('Notification permissions not granted');
       return null;
+    }
+
+    // If we already have a notification for this schedule, cancel it first
+    if (scheduleId != null) {
+      await cancelNotification(scheduleId);
     }
 
     const departureDate = new Date(departureTime);
@@ -78,7 +88,7 @@ export async function scheduleNotification(
         title: scheduleTitle,
         body: '予定の時間が近づいています。',
         sound: 'default',
-        data: { screen: 'today' },
+        data: { screen: 'today', scheduleId: scheduleId ?? null },
       },
       trigger,
     });
@@ -87,6 +97,42 @@ export async function scheduleNotification(
   } catch (error) {
     console.error('Failed to schedule notification:', error);
     return null;
+  }
+}
+
+/**
+ * Cancel a previously scheduled notification for a specific schedule.
+ * Finds it by looking through all scheduled notifications for a matching scheduleId.
+ */
+export async function cancelNotification(scheduleId: number): Promise<void> {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notif of scheduled) {
+      if (notif.content.data?.scheduleId === scheduleId) {
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to cancel notification:', error);
+  }
+}
+
+/**
+ * Cancel all notifications for an array of schedule IDs.
+ * Useful when an entire schedule list is deleted.
+ */
+export async function cancelNotificationsForSchedules(scheduleIds: number[]): Promise<void> {
+  try {
+    const idSet = new Set(scheduleIds);
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notif of scheduled) {
+      const sid = notif.content.data?.scheduleId;
+      if (sid != null && idSet.has(sid as number)) {
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to cancel notifications for schedules:', error);
   }
 }
 

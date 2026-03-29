@@ -12,13 +12,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
 import OwlChatBubble from '@/components/owl-chat-bubble';
 import TodoCard from '@/components/todo-card';
 import ScheduleMapModal, { MapPin } from '@/components/schedule-map-modal';
 import WeatherTrainBar from '@/components/weather-train-bar';
 import TimelineView from '@/components/timeline-view';
-import AdviceOwlCard from '@/components/advice-owl-card';
 
 import { scheduleListApi, ScheduleListResponse } from '@/api/scheduleListApi';
 import { scheduleApi, ScheduleResponse, ScheduleRouteFullResponse } from '@/api/scheduleApi';
@@ -29,6 +29,8 @@ import { weatherApi, WeatherForecastDay } from '@/api/weatherApi';
 import { AppColors as C } from '@/constants/app-colors';
 import { getJPDay } from '@/utils/date-utils';
 import { buildTimelineItems } from '@/utils/timeline-helper';
+import { getCategoryTheme } from '@/utils/category-helper';
+import { cancelNotificationsForSchedules } from '@/utils/notifications';
 
 export default function ScheduleIndexScreen() {
   const insets = useSafeAreaInsets();
@@ -186,6 +188,9 @@ export default function ScheduleIndexScreen() {
         onPress: async () => {
           try {
             if (scheduleList) {
+              // Cancel all notifications for schedules in this list
+              const scheduleIds = scheduleList.schedules.map(s => s.id);
+              await cancelNotificationsForSchedules(scheduleIds);
               await scheduleListApi.delete(scheduleList.id);
               router.replace('/(tabs)');
             }
@@ -216,23 +221,15 @@ export default function ScheduleIndexScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      {/* Floating Header */}
+      <View style={[styles.floatingHeader, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTopRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color={C.white} />
-            <Text style={styles.backText}>カレンダー</Text>
+          <TouchableOpacity style={styles.menuButton} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={20} color={C.white} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
             <Feather name="more-horizontal" size={20} color={C.white} />
           </TouchableOpacity>
-        </View>
-        <View style={styles.owlLayer}>
-          <OwlChatBubble
-            message={
-              suggestionData?.suggestion ||
-              (scheduleList ? `${scheduleList.name}の準備は整いましたか？` : '読み込み中です...')
-            }
-          />
         </View>
       </View>
 
@@ -241,33 +238,57 @@ export default function ScheduleIndexScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Scrollable Blue Header */}
+        <View style={[styles.blueHeaderSection, { paddingTop: insets.top + 10, paddingBottom: 0 }]}>
+          <View style={{ height: 35, marginBottom: 0 }} />
+          <View style={styles.owlLayer}>
+            <OwlChatBubble
+              message={
+                suggestionData?.suggestion ||
+                (scheduleList ? `${scheduleList.name}の準備は整いましたか？` : '読み込み中です...')
+              }
+            />
+          </View>
+        </View>
         <View style={styles.mainContent}>
-          <TodoCard
-            todos={(scheduleList?.packing_items || []).map(item => ({
-              id: item.id,
-              label: item.name,
-              checked: item.is_checked,
-            }))}
-            onToggle={handleToggleTodo}
-          />
+          <View style={styles.todoCardWrapper}>
+            <TodoCard
+              todos={(scheduleList?.packing_items || []).map(item => ({
+                id: item.id,
+                label: item.name,
+                checked: item.is_checked,
+              }))}
+              onToggle={handleToggleTodo}
+            />
+          </View>
 
           <WeatherTrainBar weatherMap={weatherMap} schedules={schedules} routes={routes} />
 
           {/* Schedule Header */}
           <View style={styles.scheduleHeaderRow}>
             <View style={styles.scheduleHeaderLeft}>
-              <Text style={styles.scheduleDate}>
+              <Text style={styles.scheduleTitle}>
                 {scheduleList
-                  ? `${new Date(scheduleList.date).getMonth() + 1}/${new Date(scheduleList.date).getDate()} (${getJPDay(scheduleList.date)})`
-                  : ''}
+                  ? `${new Date(scheduleList.date).getMonth() + 1}/${new Date(scheduleList.date).getDate()} (${getJPDay(scheduleList.date)})の予定`
+                  : '予定がありません'}
               </Text>
-              <Text style={styles.scheduleTitle}>{scheduleList?.name || '予定がありません'}</Text>
             </View>
             <TouchableOpacity style={styles.mapButton} onPress={() => setMapVisible(true)}>
               <Ionicons name="map-outline" size={14} color={C.textSecondary} />
               <Text style={styles.mapButtonText}>マップ</Text>
             </TouchableOpacity>
           </View>
+
+          {scheduleList?.name &&
+            (() => {
+              const theme = getCategoryTheme(scheduleList.category?.id);
+              return (
+                <View style={[styles.scheduleNameCard, { borderColor: theme.color }]}>
+                  <Image source={theme.icon} style={styles.scheduleNameIcon} contentFit="contain" />
+                  <Text style={styles.scheduleNameText}>{scheduleList.name}</Text>
+                </View>
+              );
+            })()}
 
           <TimelineView
             items={timelineItems}
@@ -284,13 +305,13 @@ export default function ScheduleIndexScreen() {
             }}
           />
 
-          <AdviceOwlCard title="予定を確認！" subtitle="忘れ物がないかチェックしましょう！" />
+          {/* <AdviceOwlCard title="予定を確認！" subtitle="忘れ物がないかチェックしましょう！" /> */}
         </View>
       </ScrollView>
 
       {/* FAB */}
       <TouchableOpacity
-        style={[styles.fab, { bottom: 30 + insets.bottom }]}
+        style={[styles.fab, { bottom: 10 + insets.bottom }]}
         onPress={() => {
           if (scheduleList) {
             router.push({
@@ -340,17 +361,24 @@ export default function ScheduleIndexScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.headerBg },
-  loadingCenter: { justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: C.headerBg, paddingHorizontal: 14, gap: 8 },
+  container: { flex: 1, backgroundColor: C.white },
+  loadingCenter: { justifyContent: 'center', alignItems: 'center', backgroundColor: C.headerBg },
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 14,
+    zIndex: 10,
+  },
+  blueHeaderSection: { backgroundColor: C.headerBg, paddingHorizontal: 14, gap: 8 },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 0,
   },
-  backButton: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 35 },
-  backText: { fontSize: 14, fontWeight: '500', color: C.white },
+
   menuButton: {
     width: 35,
     height: 35,
@@ -359,16 +387,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  owlLayer: { marginTop: -30 },
+  owlLayer: { marginTop: -35 },
   scrollView: { flex: 1 },
   scrollContent: {},
   mainContent: {
     backgroundColor: C.white,
+    marginTop: -20,
     paddingHorizontal: 14,
     paddingTop: 17.5,
-    paddingBottom: 17.5,
+    paddingBottom: 36.26,
     gap: 17.5,
-    minHeight: 800,
+  },
+  todoCardWrapper: {
+    marginTop: -40,
   },
   scheduleHeaderRow: {
     flexDirection: 'row',
@@ -378,6 +409,18 @@ const styles = StyleSheet.create({
   scheduleHeaderLeft: { gap: 2 },
   scheduleDate: { fontSize: 12.25, fontWeight: '500', color: C.textSecondary },
   scheduleTitle: { fontSize: 17.5, fontWeight: '700', color: C.black },
+  scheduleNameCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: C.white,
+  },
+  scheduleNameText: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+  scheduleNameIcon: { width: 32, height: 32 },
   mapButton: {
     flexDirection: 'row',
     alignItems: 'center',
