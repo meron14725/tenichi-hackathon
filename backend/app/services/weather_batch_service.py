@@ -65,13 +65,17 @@ async def _fetch_prefecture_weather(
             if attempt < _MAX_RETRIES - 1:
                 logger.warning(
                     "Retrying weather fetch for %s (%s), attempt %d",
-                    name, code, attempt + 1,
+                    name,
+                    code,
+                    attempt + 1,
                 )
                 await asyncio.sleep(_RETRY_DELAY)
             else:
                 logger.exception(
                     "Failed to fetch weather for %s (%s) after %d attempts",
-                    name, code, _MAX_RETRIES,
+                    name,
+                    code,
+                    _MAX_RETRIES,
                 )
     return None
 
@@ -87,10 +91,7 @@ async def fetch_all_prefectures_weather(db: AsyncSession) -> dict:
         async with sem:
             return await _fetch_prefecture_weather(code, name, lat, lon, target_date)
 
-    tasks = [
-        _fetch_with_semaphore(code, name, lat, lon)
-        for code, (name, lat, lon) in PREFECTURES.items()
-    ]
+    tasks = [_fetch_with_semaphore(code, name, lat, lon) for code, (name, lat, lon) in PREFECTURES.items()]
     results = await asyncio.gather(*tasks)
 
     success_count = 0
@@ -135,7 +136,5 @@ async def get_weather_cache_for_date(
     target_date: dt.date,
 ) -> list[WeatherCache]:
     """指定日の全都道府県天気キャッシュを取得する."""
-    result = await db.execute(
-        select(WeatherCache).where(WeatherCache.target_date == target_date)
-    )
+    result = await db.execute(select(WeatherCache).where(WeatherCache.target_date == target_date))
     return list(result.scalars().all())

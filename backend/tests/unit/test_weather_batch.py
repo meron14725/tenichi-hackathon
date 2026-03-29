@@ -44,37 +44,27 @@ class TestCalcWeatherSeverity:
 
     def test_clear_day(self):
         """晴天 → 低スコア."""
-        score = calc_weather_severity(
-            chance_of_rain=0, precip_mm=0.0, wind_kph=5.0, condition="Sunny"
-        )
+        score = calc_weather_severity(chance_of_rain=0, precip_mm=0.0, wind_kph=5.0, condition="Sunny")
         assert score <= 10
 
     def test_rainy_day(self):
         """雨天 → 高スコア."""
-        score = calc_weather_severity(
-            chance_of_rain=80, precip_mm=10.0, wind_kph=20.0, condition="Heavy rain"
-        )
+        score = calc_weather_severity(chance_of_rain=80, precip_mm=10.0, wind_kph=20.0, condition="Heavy rain")
         assert score >= 50
 
     def test_snowy_day(self):
         """雪 → 高スコア."""
-        score = calc_weather_severity(
-            chance_of_rain=90, precip_mm=15.0, wind_kph=30.0, condition="Snow"
-        )
+        score = calc_weather_severity(chance_of_rain=90, precip_mm=15.0, wind_kph=30.0, condition="Snow")
         assert score >= 60
 
     def test_max_score_capped(self):
         """スコア上限100."""
-        score = calc_weather_severity(
-            chance_of_rain=100, precip_mm=50.0, wind_kph=100.0, condition="Blizzard"
-        )
+        score = calc_weather_severity(chance_of_rain=100, precip_mm=50.0, wind_kph=100.0, condition="Blizzard")
         assert score == 100
 
     def test_mild_rain(self):
         """小雨 → 中程度スコア."""
-        score = calc_weather_severity(
-            chance_of_rain=40, precip_mm=2.0, wind_kph=10.0, condition="Light drizzle"
-        )
+        score = calc_weather_severity(chance_of_rain=40, precip_mm=2.0, wind_kph=10.0, condition="Light drizzle")
         assert 10 <= score <= 40
 
 
@@ -172,16 +162,18 @@ class TestSuggestionsCacheIntegration:
         today = dt.datetime.now(dt.UTC).date()
 
         async for db in app.dependency_overrides[get_db]():
-            db.add(SuggestionCache(
-                user_id=user_id,
-                target_date=today,
-                suggestion_text="折りたたみ傘をお持ちください。",
-                weather_summary_json={
-                    "temp_c": 15.0,
-                    "condition": "Cloudy",
-                    "chance_of_rain": 60,
-                },
-            ))
+            db.add(
+                SuggestionCache(
+                    user_id=user_id,
+                    target_date=today,
+                    suggestion_text="折りたたみ傘をお持ちください。",
+                    weather_summary_json={
+                        "temp_c": 15.0,
+                        "condition": "Cloudy",
+                        "chance_of_rain": 60,
+                    },
+                )
+            )
             await db.commit()
 
         resp = await client.get("/api/v1/suggestions/today", headers=headers)

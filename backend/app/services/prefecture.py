@@ -89,12 +89,16 @@ def calc_weather_severity(
     score += min(int(wind_kph / 4), 15)
     # 天気条件キーワード: 最大15点
     bad_keywords = {
-        "snow": 15, "blizzard": 15,
+        "snow": 15,
+        "blizzard": 15,
         "thunder": 12,
-        "heavy rain": 12, "torrential": 12,
+        "heavy rain": 12,
+        "torrential": 12,
         "sleet": 10,
-        "rain": 8, "drizzle": 5,
-        "fog": 3, "mist": 3,
+        "rain": 8,
+        "drizzle": 5,
+        "fog": 3,
+        "mist": 3,
     }
     condition_lower = condition.lower()
     keyword_score = 0

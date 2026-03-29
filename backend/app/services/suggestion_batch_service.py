@@ -88,11 +88,15 @@ async def _generate_suggestion_for_user(
     for attempt in range(_MAX_RETRIES):
         try:
             weather_text, weather_summary = await _get_worst_weather_text(
-                db, schedules, user_settings, today,
+                db,
+                schedules,
+                user_settings,
+                today,
             )
             schedules_text = _format_schedules_for_prompt(schedules)
             suggestion = await gemini_service.generate_today_suggestion(
-                schedules_text, weather_text,
+                schedules_text,
+                weather_text,
             )
             return {
                 "user_id": user_id,
@@ -104,13 +108,15 @@ async def _generate_suggestion_for_user(
             if attempt < _MAX_RETRIES - 1:
                 logger.warning(
                     "Retrying suggestion generation for user %d, attempt %d",
-                    user_id, attempt + 1,
+                    user_id,
+                    attempt + 1,
                 )
                 await asyncio.sleep(_RETRY_DELAY)
             else:
                 logger.exception(
                     "Failed to generate suggestion for user %d after %d attempts",
-                    user_id, _MAX_RETRIES,
+                    user_id,
+                    _MAX_RETRIES,
                 )
     return None
 
@@ -123,9 +129,7 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
 
     # 当日スケジュールを持つユーザーIDを取得
     user_ids_result = await db.execute(
-        select(Schedule.user_id)
-        .where(Schedule.start_at >= today_start, Schedule.start_at < today_end)
-        .distinct()
+        select(Schedule.user_id).where(Schedule.start_at >= today_start, Schedule.start_at < today_end).distinct()
     )
     user_ids = list(user_ids_result.scalars().all())
 
@@ -149,12 +153,8 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
         return {"success": 0, "failed": 0, "skipped": skipped, "date": today.isoformat()}
 
     # ユーザー設定を一括取得
-    settings_result = await db.execute(
-        select(UserSettings).where(UserSettings.user_id.in_(target_user_ids))
-    )
-    settings_map: dict[int, UserSettings] = {
-        s.user_id: s for s in settings_result.scalars().all()
-    }
+    settings_result = await db.execute(select(UserSettings).where(UserSettings.user_id.in_(target_user_ids)))
+    settings_map: dict[int, UserSettings] = {s.user_id: s for s in settings_result.scalars().all()}
 
     # 各ユーザーのスケジュールを取得
     schedules_result = await db.execute(
@@ -179,7 +179,8 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
     async def _gen_with_semaphore(user_id: int) -> dict | None:
         async with sem:
             return await _generate_suggestion_for_user(
-                db, user_id,
+                db,
+                user_id,
                 user_schedules.get(user_id, []),
                 settings_map.get(user_id),
                 today,
@@ -212,7 +213,9 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
 
     logger.info(
         "Suggestion batch completed: %d success, %d failed, %d skipped",
-        success_count, fail_count, skipped,
+        success_count,
+        fail_count,
+        skipped,
     )
     return {
         "success": success_count,
