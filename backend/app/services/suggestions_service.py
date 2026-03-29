@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.exceptions import AppError
 from app.models.schedule import Schedule
+from app.models.suggestion_cache import SuggestionCache
 from app.models.user import User, UserSettings
 from app.services import gemini_service, weather_service
 
@@ -61,30 +62,12 @@ def _format_schedule_for_prompt(schedule: Schedule) -> str:
     return "\n".join(parts)
 
 
-async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
-    """今日の提案を生成する."""
-    # ユーザー設定から自宅座標を取得
-    result = await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))
-    user_settings = result.scalar_one_or_none()
-
-    tz = ZoneInfo(user_settings.timezone if user_settings else "Asia/Tokyo")
-    today = dt.datetime.now(tz).date()
-
-    # 今日のスケジュールを取得
-    stmt = (
-        select(Schedule)
-        .options(selectinload(Schedule.tags))
-        .where(
-            Schedule.user_id == user.id,
-            Schedule.start_at >= dt.datetime.combine(today, dt.time.min, tzinfo=tz),
-            Schedule.start_at < dt.datetime.combine(today + dt.timedelta(days=1), dt.time.min, tzinfo=tz),
-        )
-        .order_by(Schedule.start_at)
-    )
-    schedules_result = await db.execute(stmt)
-    schedules = list(schedules_result.scalars().all())
-
-    # 天気情報を取得
+async def _fallback_realtime_suggestion(
+    user_settings: UserSettings | None,
+    schedules: list[Schedule],
+    today: dt.date,
+) -> dict:
+    """キャッシュがない場合の従来リアルタイム生成フォールバック."""
     weather_summary = None
     if user_settings and user_settings.home_lat and user_settings.home_lon:
         try:
@@ -100,7 +83,7 @@ async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
             }
             weather_text = _format_weather_for_prompt(weather_data)
         except AppError as e:
-            logger.warning("Weather fetch failed for user %s: %s", user.id, e.message)
+            logger.warning("Weather fetch failed for fallback: %s", e.message)
             weather_text = "天気情報は取得できませんでした。"
     else:
         weather_text = "自宅の座標が設定されていないため天気情報は取得できませんでした。"
@@ -113,6 +96,57 @@ async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
         "suggestion": suggestion,
         "weather_summary": weather_summary,
     }
+
+
+async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
+    """今日の提案を生成する（キャッシュ優先、フォールバックあり）."""
+    # ユーザー設定から自宅座標を取得
+    result = await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))
+    user_settings = result.scalar_one_or_none()
+
+    tz = ZoneInfo(user_settings.timezone if user_settings else "Asia/Tokyo")
+    today = dt.datetime.now(tz).date()
+
+    # キャッシュ確認: user_id + today で直接引く
+    cache_result = await db.execute(
+        select(SuggestionCache).where(
+            SuggestionCache.user_id == user.id,
+            SuggestionCache.target_date == today,
+        )
+    )
+    cached = cache_result.scalar_one_or_none()
+    if cached:
+        return {
+            "date": today.isoformat(),
+            "suggestion": cached.suggestion_text,
+            "weather_summary": cached.weather_summary_json,
+        }
+
+    # 今日のスケジュールを取得（フォールバック用）
+    stmt = (
+        select(Schedule)
+        .options(selectinload(Schedule.tags))
+        .where(
+            Schedule.user_id == user.id,
+            Schedule.start_at >= dt.datetime.combine(today, dt.time.min, tzinfo=tz),
+            Schedule.start_at < dt.datetime.combine(today + dt.timedelta(days=1), dt.time.min, tzinfo=tz),
+        )
+        .order_by(Schedule.start_at)
+    )
+    schedules_result = await db.execute(stmt)
+    schedules = list(schedules_result.scalars().all())
+
+    # フォールバック: リアルタイム生成
+    logger.info("Cache miss for user %s, falling back to realtime generation", user.id)
+    try:
+        return await _fallback_realtime_suggestion(user_settings, schedules, today)
+    except Exception:
+        logger.exception("All suggestion generation failed for user %s", user.id)
+        return {
+            "date": today.isoformat(),
+            "suggestion": "今日も1日頑張りましょう！",
+            "weather_summary": None,
+        }
 
 
 async def get_schedule_suggestion(db: AsyncSession, user: User, schedule_id: int) -> dict:

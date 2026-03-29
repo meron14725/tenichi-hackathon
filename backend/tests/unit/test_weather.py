@@ -80,7 +80,7 @@ MOCK_WEATHERAPI_RESPONSE = {
 class TestWeatherService:
     """weather_service のユニットテスト."""
 
-    @patch("app.services.weather_service._fetch_forecast", new_callable=AsyncMock)
+    @patch("app.services.weather_service.fetch_forecast_raw", new_callable=AsyncMock)
     async def test_get_weather_success(self, mock_fetch):
         from app.services.weather_service import get_weather
 
@@ -101,7 +101,7 @@ class TestWeatherService:
         assert result["humidity"] == 55
         assert result["wind_kph"] == 8.3
 
-    @patch("app.services.weather_service._fetch_forecast", new_callable=AsyncMock)
+    @patch("app.services.weather_service.fetch_forecast_raw", new_callable=AsyncMock)
     async def test_get_weather_default_date(self, mock_fetch):
         """date 省略時は今日の日付（JST）を使用."""
         from zoneinfo import ZoneInfo
@@ -127,7 +127,7 @@ class TestWeatherService:
         assert result["date"] == today_jst
         mock_fetch.assert_called_once_with("35.658,139.701", days=3, target_date=today_jst)
 
-    @patch("app.services.weather_service._fetch_forecast", new_callable=AsyncMock)
+    @patch("app.services.weather_service.fetch_forecast_raw", new_callable=AsyncMock)
     async def test_get_weather_date_out_of_range(self, mock_fetch):
         """リクエスト日付がforecastに含まれない場合は AppError."""
         from app.services.weather_service import get_weather
@@ -139,7 +139,7 @@ class TestWeatherService:
         assert exc_info.value.status_code == 400
         assert exc_info.value.code == "VALIDATION_ERROR"
 
-    @patch("app.services.weather_service._fetch_forecast", new_callable=AsyncMock)
+    @patch("app.services.weather_service.fetch_forecast_raw", new_callable=AsyncMock)
     async def test_get_forecast_success(self, mock_fetch):
         from app.services.weather_service import get_forecast
 
@@ -162,7 +162,7 @@ class TestWeatherService:
         assert day2["condition"] == "Light rain"
         assert day2["chance_of_rain"] == 75
 
-    @patch("app.services.weather_service._fetch_forecast", new_callable=AsyncMock)
+    @patch("app.services.weather_service.fetch_forecast_raw", new_callable=AsyncMock)
     async def test_get_weather_external_api_failure(self, mock_fetch):
         """外部API失敗時は AppError(502)."""
         from app.services.weather_service import get_weather
@@ -173,7 +173,7 @@ class TestWeatherService:
             await get_weather(35.658, 139.701)
         assert exc_info.value.status_code == 502
 
-    @patch("app.services.weather_service._fetch_forecast", new_callable=AsyncMock)
+    @patch("app.services.weather_service.fetch_forecast_raw", new_callable=AsyncMock)
     async def test_get_forecast_external_api_failure(self, mock_fetch):
         """外部API失敗時は AppError(502)."""
         from app.services.weather_service import get_forecast
@@ -187,16 +187,16 @@ class TestWeatherService:
 
 @pytest.mark.asyncio
 class TestFetchForecast:
-    """_fetch_forecast のユニットテスト（httpx をモック）."""
+    """fetch_forecast_raw のユニットテスト（httpx をモック）."""
 
     async def test_api_key_not_configured(self):
         """APIキー未設定時は AppError(503)."""
-        from app.services.weather_service import _fetch_forecast
+        from app.services.weather_service import fetch_forecast_raw
 
         with patch("app.services.weather_service.settings") as mock_settings:
             mock_settings.WEATHERAPI_KEY = ""
             with pytest.raises(AppError) as exc_info:
-                await _fetch_forecast("35.658,139.701")
+                await fetch_forecast_raw("35.658,139.701")
             assert exc_info.value.status_code == 503
             assert exc_info.value.code == "WEATHER_UNAVAILABLE"
 
@@ -204,7 +204,7 @@ class TestFetchForecast:
         """httpx接続エラー時は AppError(502)."""
         import httpx
 
-        from app.services.weather_service import _fetch_forecast
+        from app.services.weather_service import fetch_forecast_raw
 
         with patch("app.services.weather_service.settings") as mock_settings:
             mock_settings.WEATHERAPI_KEY = "test-key"
@@ -216,13 +216,13 @@ class TestFetchForecast:
                 mock_client_cls.return_value = mock_client
 
                 with pytest.raises(AppError) as exc_info:
-                    await _fetch_forecast("35.658,139.701")
+                    await fetch_forecast_raw("35.658,139.701")
                 assert exc_info.value.status_code == 502
                 assert exc_info.value.code == "WEATHER_UNAVAILABLE"
 
     async def test_non_200_response(self):
         """外部APIが非200を返す場合は AppError(502)."""
-        from app.services.weather_service import _fetch_forecast
+        from app.services.weather_service import fetch_forecast_raw
 
         with patch("app.services.weather_service.settings") as mock_settings:
             mock_settings.WEATHERAPI_KEY = "test-key"
@@ -238,12 +238,12 @@ class TestFetchForecast:
                 mock_client_cls.return_value = mock_client
 
                 with pytest.raises(AppError) as exc_info:
-                    await _fetch_forecast("35.658,139.701")
+                    await fetch_forecast_raw("35.658,139.701")
                 assert exc_info.value.status_code == 502
 
     async def test_success(self):
         """正常系: 200レスポンスを返す."""
-        from app.services.weather_service import _fetch_forecast
+        from app.services.weather_service import fetch_forecast_raw
 
         with patch("app.services.weather_service.settings") as mock_settings:
             mock_settings.WEATHERAPI_KEY = "test-key"
@@ -258,7 +258,7 @@ class TestFetchForecast:
                 mock_client.get.return_value = mock_resp
                 mock_client_cls.return_value = mock_client
 
-                result = await _fetch_forecast("35.658,139.701", days=3)
+                result = await fetch_forecast_raw("35.658,139.701", days=3)
                 assert result == MOCK_WEATHERAPI_RESPONSE
 
 

@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.batch import router as batch_router
 from app.api.categories import router as categories_router
 from app.api.healthz import router as healthz_router
 from app.api.notifications import router as notifications_router
@@ -63,3 +64,4 @@ app.include_router(suggestions_router, prefix="/api/v1")
 app.include_router(transit_lines_router, prefix="/api/v1")
 app.include_router(transit_status_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
+app.include_router(batch_router, prefix="/api")
