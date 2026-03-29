@@ -1,8 +1,12 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Image } from 'expo-image';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+
+const tabTodaySolid = require('@/assets/images/tab-today-solid.svg');
+const tabTodayOutline = require('@/assets/images/tab-today-outline.svg');
 
 export default function TabLayout() {
   return (
@@ -26,7 +30,11 @@ export default function TabLayout() {
         options={{
           title: '本日の予定',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
+            <Image
+              source={focused ? tabTodaySolid : tabTodayOutline}
+              style={{ width: 24, height: 24, tintColor: color }}
+              contentFit="contain"
+            />
           ),
           tabBarLabelStyle: {
             fontSize: 12.25,

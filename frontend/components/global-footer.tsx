@@ -1,8 +1,14 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+const tabTodaySolid = require('@/assets/images/tab-today-solid.svg');
+const tabTodayOutline = require('@/assets/images/tab-today-outline.svg');
+const tabCalendarSolid = require('@/assets/images/tab-calendar-solid.svg');
+const tabCalendarOutline = require('@/assets/images/tab-calendar-outline.svg');
+const tabRoutine = require('@/assets/images/tab-routine.svg');
+const tabMypage = require('@/assets/images/tab-mypage.svg');
 
 const C = {
   primary: '#436F9B',
@@ -27,10 +33,10 @@ export default function GlobalFooter() {
       id: 'index',
       label: '本日の予定',
       icon: (focused: boolean) => (
-        <Ionicons
-          name={focused ? 'calendar' : 'calendar-outline'}
-          size={24}
-          color={focused ? C.primary : C.inactive}
+        <Image
+          source={focused ? tabTodaySolid : tabTodayOutline}
+          style={{ width: 24, height: 24, tintColor: focused ? C.primary : C.inactive }}
+          contentFit="contain"
         />
       ),
       path: '/(tabs)',
@@ -39,7 +45,11 @@ export default function GlobalFooter() {
       id: 'calendar',
       label: 'カレンダー',
       icon: (focused: boolean) => (
-        <Ionicons name="calendar-outline" size={24} color={focused ? C.primary : C.inactive} />
+        <Image
+          source={focused ? tabCalendarSolid : tabCalendarOutline}
+          style={{ width: 24, height: 24, tintColor: focused ? C.primary : C.inactive }}
+          contentFit="contain"
+        />
       ),
       path: '/calendar',
     },
@@ -47,10 +57,10 @@ export default function GlobalFooter() {
       id: 'routine',
       label: 'ルーティン',
       icon: (focused: boolean) => (
-        <MaterialCommunityIcons
-          name="arrow-u-left-top"
-          size={24}
-          color={focused ? C.primary : C.inactive}
+        <Image
+          source={tabRoutine}
+          style={{ width: 24, height: 24, tintColor: focused ? C.primary : undefined }}
+          contentFit="contain"
         />
       ),
       path: '/routine',
@@ -59,7 +69,11 @@ export default function GlobalFooter() {
       id: 'mypage',
       label: 'マイページ',
       icon: (focused: boolean) => (
-        <Ionicons name="person-outline" size={24} color={focused ? C.primary : C.inactive} />
+        <Image
+          source={tabMypage}
+          style={{ width: 24, height: 24, tintColor: focused ? C.primary : undefined }}
+          contentFit="contain"
+        />
       ),
       path: '/mypage',
     },
