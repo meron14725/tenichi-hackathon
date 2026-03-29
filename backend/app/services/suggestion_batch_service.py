@@ -12,11 +12,12 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.exceptions import AppError
 from app.models.schedule import Schedule
 from app.models.suggestion_cache import SuggestionCache
 from app.models.user import UserSettings
 from app.models.weather_cache import WeatherCache
-from app.services import gemini_service
+from app.services import gemini_service, weather_service
 from app.services.prefecture import find_nearest_prefecture
 from app.services.suggestions_service import (
     _format_schedules_for_prompt,
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 _CONCURRENCY = 5
 _MAX_RETRIES = 2
 _RETRY_DELAY = 2.0
+_FALLBACK_SUGGESTION = "今日も1日頑張りましょう！"
 
 
 async def _get_worst_weather_text(
@@ -137,11 +139,12 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
         logger.info("No users with schedules for %s", today)
         return {"success": 0, "failed": 0, "skipped": 0, "date": today.isoformat()}
 
-    # 既存キャッシュがあるユーザーをスキップ
+    # 既存キャッシュがあるユーザーをスキップ（フォールバック文言は上書き対象）
     existing_result = await db.execute(
         select(SuggestionCache.user_id).where(
             SuggestionCache.target_date == today,
             SuggestionCache.user_id.in_(user_ids),
+            SuggestionCache.suggestion_text != _FALLBACK_SUGGESTION,
         )
     )
     existing_user_ids = set(existing_result.scalars().all())
@@ -223,3 +226,143 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
         "skipped": skipped,
         "date": today.isoformat(),
     }
+
+
+async def _get_weather_text_with_fallback(
+    db: AsyncSession,
+    lat: float | None,
+    lon: float | None,
+    target_date: dt.date,
+) -> tuple[str, dict | None]:
+    """座標から天気を取得。キャッシュ→リアルタイム→天気なしの3段フォールバック."""
+    if lat is None or lon is None:
+        logger.debug("No coordinates available for weather lookup, skipping weather enrichment")
+        return "天気情報は取得できませんでした。", None
+
+    code = find_nearest_prefecture(lat, lon)
+
+    # 1. weather_cachesから取得
+    result = await db.execute(
+        select(WeatherCache).where(
+            WeatherCache.prefecture_code == code,
+            WeatherCache.target_date == target_date,
+        )
+    )
+    cached = result.scalar_one_or_none()
+    if cached:
+        weather_dict = {
+            "condition": cached.condition,
+            "temp_c": cached.temp_c,
+            "chance_of_rain": cached.chance_of_rain,
+            "humidity": cached.humidity,
+        }
+        weather_summary = {
+            "temp_c": cached.temp_c,
+            "condition": cached.condition,
+            "chance_of_rain": cached.chance_of_rain,
+        }
+        return _format_weather_for_prompt(weather_dict), weather_summary
+
+    # 2. リアルタイム取得（WeatherAPIは15日先まで対応、超過時はAppError）
+    try:
+        weather_data = await weather_service.get_weather(lat, lon, target_date)
+        weather_summary = {
+            "temp_c": weather_data["temp_c"],
+            "condition": weather_data["condition"],
+            "chance_of_rain": weather_data["chance_of_rain"],
+        }
+        return _format_weather_for_prompt(weather_data), weather_summary
+    except AppError:
+        logger.info("Weather not available for %s (prefecture %s), generating without weather", target_date, code)
+    except Exception:
+        logger.warning("Unexpected error fetching weather for %s (prefecture %s)", target_date, code, exc_info=True)
+
+    # 3. 天気なし
+    return "天気予報はまだ取得できません。", None
+
+
+async def generate_suggestion_for_schedule_list(
+    db: AsyncSession,
+    user_id: int,
+    target_date: dt.date,
+    departure_lat: float | None,
+    departure_lng: float | None,
+) -> None:
+    """スケジュールリスト作成時にLLM提案を即時生成してキャッシュに保存."""
+    tz = ZoneInfo("Asia/Tokyo")
+    day_start = dt.datetime.combine(target_date, dt.time.min, tzinfo=tz)
+    day_end = dt.datetime.combine(target_date + dt.timedelta(days=1), dt.time.min, tzinfo=tz)
+
+    # その日のスケジュールを取得（既にあれば）
+    schedules_result = await db.execute(
+        select(Schedule)
+        .options(selectinload(Schedule.tags))
+        .where(
+            Schedule.user_id == user_id,
+            Schedule.start_at >= day_start,
+            Schedule.start_at < day_end,
+        )
+        .order_by(Schedule.start_at)
+    )
+    schedules = list(schedules_result.scalars().all())
+
+    # 位置情報の優先順位: スケジュール目的地 → 出発地 → ユーザー自宅
+    lat, lon = departure_lat, departure_lng
+    for s in schedules:
+        if s.destination_lat and s.destination_lon:
+            lat, lon = float(s.destination_lat), float(s.destination_lon)
+            break
+
+    if lat is None or lon is None:
+        settings_result = await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
+        user_settings = settings_result.scalar_one_or_none()
+        if user_settings and user_settings.home_lat and user_settings.home_lon:
+            lat, lon = float(user_settings.home_lat), float(user_settings.home_lon)
+
+    weather_text, weather_summary = await _get_weather_text_with_fallback(db, lat, lon, target_date)
+    schedules_text = _format_schedules_for_prompt(schedules)
+
+    # LLM生成（リトライ + フォールバック文言）
+    suggestion = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            suggestion = await gemini_service.generate_today_suggestion(schedules_text, weather_text)
+            break
+        except Exception:
+            if attempt < _MAX_RETRIES - 1:
+                logger.warning(
+                    "Retrying suggestion generation for user %d, attempt %d",
+                    user_id,
+                    attempt + 1,
+                    exc_info=True,
+                )
+                await asyncio.sleep(_RETRY_DELAY)
+            else:
+                logger.exception("Failed to generate suggestion for user %d after %d attempts", user_id, _MAX_RETRIES)
+
+    if suggestion is None:
+        suggestion = _FALLBACK_SUGGESTION
+
+    stmt = pg_insert(SuggestionCache).values(
+        user_id=user_id,
+        target_date=target_date,
+        suggestion_text=suggestion,
+        weather_summary_json=weather_summary or {},
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["user_id", "target_date"],
+        set_={
+            "suggestion_text": stmt.excluded.suggestion_text,
+            "weather_summary_json": stmt.excluded.weather_summary_json,
+            "updated_at": dt.datetime.now(dt.UTC),
+        },
+    )
+    try:
+        await db.execute(stmt)
+        await db.commit()
+    except Exception:
+        logger.exception("Failed to persist suggestion cache for user %d on %s", user_id, target_date)
+        await db.rollback()
+        return
+
+    logger.info("Generated suggestion for user %d on %s", user_id, target_date)
