@@ -4,7 +4,7 @@ import { UserSettingsResponse } from '@/api/userApi';
 import { WeatherForecastDay } from '@/api/weatherApi';
 import { ScheduleListResponse } from '@/api/scheduleListApi';
 import { formatTime } from '@/utils/date-utils';
-import { AppColors as C } from '@/constants/app-colors';
+import { getScheduleTagTheme } from '@/utils/schedule-helper';
 
 export function buildTimelineItems(
   schedules: ScheduleResponse[],
@@ -124,13 +124,19 @@ export function buildTimelineItems(
         });
 
         if (legIdx === fullRoute.route_data.legs.length - 1) {
+          const tagId = s.tags?.[0]?.id;
+          const theme = getScheduleTagTheme(tagId || 1);
+          const iconSource = theme.icon;
+          const iconBg = tagId === 1 ? '#EEF3F2' : tagId === 2 ? '#F3EFE6' : '#F0F2F4';
+
           timelineItems.push({
             time: formatTime(leg.arrival_time),
             title: s.title,
             subtitle: s.destination_name || s.memo || undefined,
             past: isPast(leg.arrival_time),
             hasChevron: true,
-            iconBg: C.eventGreen,
+            iconBg,
+            iconSource,
             scheduleId: s.id,
             weather:
               s.destination_lat != null && s.destination_lon != null
@@ -140,13 +146,19 @@ export function buildTimelineItems(
         }
       });
     } else {
+      const tagId = s.tags?.[0]?.id;
+      const theme = getScheduleTagTheme(tagId || 1);
+      const iconSource = theme.icon;
+      const iconBg = tagId === 1 ? '#EEF3F2' : tagId === 2 ? '#F3EFE6' : '#F0F2F4';
+
       timelineItems.push({
         time: formatTime(s.start_at),
         title: s.title,
         subtitle: s.destination_name || s.memo || undefined,
         past: isPast(s.start_at),
         hasChevron: true,
-        iconBg: C.eventGreen,
+        iconBg,
+        iconSource,
         scheduleId: s.id,
         weather:
           s.destination_lat != null && s.destination_lon != null

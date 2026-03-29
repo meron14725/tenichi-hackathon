@@ -31,6 +31,7 @@ import { AppColors as C } from '@/constants/app-colors';
 import { getJPDay } from '@/utils/date-utils';
 import { buildTimelineItems } from '@/utils/timeline-helper';
 import { getCategoryTheme } from '@/utils/category-helper';
+import { cancelNotificationsForSchedules } from '@/utils/notifications';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -45,6 +46,7 @@ export default function HomeScreen() {
   const [mapVisible, setMapVisible] = useState<boolean>(false);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherForecastDay>>({});
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [tomorrowListId, setTomorrowListId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -54,11 +56,24 @@ export default function HomeScreen() {
       const dd = String(now.getDate()).padStart(2, '0');
       const dateStr = `${yyyy}-${mm}-${dd}`;
 
-      const [todayData, settings, listResults] = await Promise.all([
+      // Tomorrow's date
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
+      const [todayData, settings, listResults, tomorrowResults] = await Promise.all([
         suggestionApi.getToday(),
         userApi.getSettings(),
         scheduleListApi.list({ start_date: dateStr, end_date: dateStr }),
+        scheduleListApi.list({ start_date: tomorrowStr, end_date: tomorrowStr }),
       ]);
+
+      // Store tomorrow's list id if available
+      if (tomorrowResults && tomorrowResults.length > 0) {
+        setTomorrowListId(tomorrowResults[0].id);
+      } else {
+        setTomorrowListId(null);
+      }
 
       setSuggestionData(todayData);
       setUserSettings(settings);
@@ -193,6 +208,9 @@ export default function HomeScreen() {
         onPress: async () => {
           try {
             if (scheduleList) {
+              // Cancel all notifications for schedules in this list
+              const scheduleIds = scheduleList.schedules.map(s => s.id);
+              await cancelNotificationsForSchedules(scheduleIds);
               await scheduleListApi.delete(scheduleList.id);
               router.replace('/(tabs)');
             }
@@ -307,6 +325,24 @@ export default function HomeScreen() {
           <AdviceOwlCard
             title="明日の予定を確認！"
             subtitle="明日に備えて、今日の夜はぐっすり寝よう！"
+            onPress={() => {
+              if (tomorrowListId) {
+                router.push({
+                  pathname: '/schedule/list',
+                  params: { id: tomorrowListId.toString() },
+                });
+              } else {
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const yyyy = tomorrow.getFullYear();
+                const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+                const dd = String(tomorrow.getDate()).padStart(2, '0');
+                router.push({
+                  pathname: '/schedule/list/register',
+                  params: { date: `${yyyy}-${mm}-${dd}` },
+                });
+              }
+            }}
           />
         </View>
       </ScrollView>

@@ -13,6 +13,7 @@ export interface TimelineItem {
   past: boolean;
   hasChevron?: boolean;
   iconName?: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  iconSource?: any;
   scheduleId?: number;
   weather?: WeatherForecastDay;
 }

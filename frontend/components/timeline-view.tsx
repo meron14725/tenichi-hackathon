@@ -78,14 +78,22 @@ function renderTimelineEntry(
                 <View
                   style={[
                     styles.eventIcon,
-                    { backgroundColor: item.past ? C.weatherBg : item.iconBg },
+                    { backgroundColor: item.past ? C.weatherBg : item.iconBg || C.eventGreen },
                   ]}
                 >
-                  <Ionicons
-                    name="calendar-outline"
-                    size={18}
-                    color={item.past ? C.textMuted : C.textSecondary}
-                  />
+                  {item.iconSource ? (
+                    <Image
+                      source={item.iconSource}
+                      style={{ width: 24, height: 24 }}
+                      contentFit="contain"
+                    />
+                  ) : (
+                    <Ionicons
+                      name="calendar-outline"
+                      size={18}
+                      color={item.past ? C.textMuted : C.textSecondary}
+                    />
+                  )}
                 </View>
                 <View style={styles.eventDetails}>
                   <Text style={[styles.eventTitle, { color: textColor }]}>{item.title}</Text>

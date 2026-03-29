@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { scheduleListApi, ScheduleListResponse } from '@/api/scheduleListApi';
 
 const C = {
@@ -30,36 +30,19 @@ const C = {
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-type CategoryUI =
-  | { color: string; icon: React.ComponentProps<typeof Ionicons>['name']; iconSet: 'ionicons' }
-  | { color: string; icon: React.ComponentProps<typeof FontAwesome5>['name']; iconSet: 'fa5' }
-  | {
-      color: string;
-      icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-      iconSet: 'mci';
-    };
-
-const CATEGORY_UI_MAP: Record<string, CategoryUI> = {
-  休日: { color: C.holiday, icon: 'bicycle', iconSet: 'ionicons' },
-  旅行: { color: C.travel, icon: 'suitcase-rolling', iconSet: 'fa5' },
-  仕事: { color: C.work, icon: 'briefcase-outline', iconSet: 'mci' },
-  出張: { color: C.business, icon: 'briefcase', iconSet: 'fa5' },
-};
-
-function getCategoryUI(name?: string): CategoryUI {
-  const defaultUI: CategoryUI = { color: C.accent, icon: 'bookmark-outline', iconSet: 'ionicons' };
-  if (!name) return defaultUI;
-  return CATEGORY_UI_MAP[name] || defaultUI;
-}
-
-function renderCategoryIcon(iconInfo: CategoryUI, color: string, size: number = 10) {
-  if (iconInfo.iconSet === 'ionicons') {
-    return <Ionicons name={iconInfo.icon} size={size} color={color} />;
+function getEventColor(categoryId?: number): string {
+  switch (categoryId) {
+    case 4:
+      return '#A86A78';
+    case 5:
+      return '#C2A070';
+    case 6:
+      return '#6E8F8A';
+    case 7:
+      return '#9284C2';
+    default:
+      return C.accent;
   }
-  if (iconInfo.iconSet === 'fa5') {
-    return <FontAwesome5 name={iconInfo.icon} size={size} color={color} />;
-  }
-  return <MaterialCommunityIcons name={iconInfo.icon} size={size} color={color} />;
 }
 
 function getCalendarDays(year: number, month: number) {
@@ -233,20 +216,10 @@ export default function CalendarScreen() {
                   </View>
                   {event &&
                     (() => {
-                      const ui = getCategoryUI(event.category?.name);
+                      const bgColor = getEventColor(event.category?.id);
                       return (
-                        <View style={[styles.eventBadge, { backgroundColor: ui.color }]}>
-                          <View
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: 2,
-                            }}
-                          >
-                            {renderCategoryIcon(ui, C.white, 8)}
-                            <Text style={styles.eventBadgeText}>{event.name}</Text>
-                          </View>
+                        <View style={[styles.eventBadge, { backgroundColor: bgColor }]}>
+                          <Text style={styles.eventBadgeText}>{event.name}</Text>
                         </View>
                       );
                     })()}
@@ -355,8 +328,7 @@ const styles = StyleSheet.create({
   // Event badge
   eventBadge: {
     borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    padding: 1.88,
     width: '90%',
     alignSelf: 'center',
   },
