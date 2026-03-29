@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppColors as C } from '@/constants/app-colors';
 import { TimelineItem } from '@/lib/types/timeline';
@@ -20,7 +21,12 @@ export default function TimelineView({
   if (items.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>予定がありません</Text>
+        <Image
+          source={require('@/assets/images/owl2.svg')}
+          style={styles.emptyOwl}
+          contentFit="contain"
+        />
+        <Text style={styles.emptyText}>どんな1日を過ごす？</Text>
       </View>
     );
   }
@@ -158,8 +164,21 @@ function renderTimelineEntry(
 }
 
 const styles = StyleSheet.create({
-  emptyContainer: { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { color: C.textSecondary, fontSize: 14 },
+  emptyContainer: {
+    paddingVertical: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyOwl: {
+    width: 120,
+    height: 189.17,
+    marginBottom: 12.25,
+  },
+  emptyText: {
+    color: C.textPrimary,
+    fontSize: 15.75,
+    fontWeight: '500',
+  },
   timeline: {},
   timelineRow: { flexDirection: 'row', minHeight: 56 },
   timeColumn: { width: 70, alignItems: 'center', position: 'relative' },

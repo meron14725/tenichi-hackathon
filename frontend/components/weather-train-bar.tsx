@@ -1,10 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { AppColors as C } from '@/constants/app-colors';
 import { formatTime } from '@/utils/date-utils';
 import { WeatherForecastDay } from '@/api/weatherApi';
 import { ScheduleResponse, ScheduleRouteFullResponse } from '@/api/scheduleApi';
+
+const timelineLineIcon = require('@/assets/images/timeline-line-icon.svg');
 
 interface WeatherTrainBarProps {
   weatherMap: Record<string, WeatherForecastDay>;
@@ -96,17 +99,30 @@ export default function WeatherTrainBar({ weatherMap, schedules, routes }: Weath
         </Text>
       </View>
       <View style={styles.trainCard}>
-        <Ionicons name={nextAction.icon} size={28} color={C.textPrimary} />
-        <View style={{ alignItems: 'center' }}>
-          <Text style={styles.trainTime}>
-            {nextAction.time} {nextAction.type === 'move' ? '発' : '予定'}
-          </Text>
-          {nextAction.type !== 'none' && (
-            <Text style={styles.trainDest} numberOfLines={1}>
-              {nextAction.label}
-            </Text>
-          )}
-        </View>
+        {nextAction.type === 'none' ? (
+          <>
+            <Image
+              source={timelineLineIcon}
+              style={{ width: 28, height: 28 }}
+              contentFit="contain"
+            />
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.trainTime}>スケジュール未定</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Ionicons name={nextAction.icon as any} size={28} color={C.textPrimary} />
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.trainTime}>
+                {nextAction.time} {nextAction.type === 'move' ? '発' : '予定'}
+              </Text>
+              <Text style={styles.trainDest} numberOfLines={1}>
+                {nextAction.label}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
     </View>
   );

@@ -32,7 +32,7 @@ export default function EditListScreen() {
   const [memo, setMemo] = useState<string>('');
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [belongings, setBelongings] = useState<string[]>([]);
+  const [belongings, setBelongings] = useState<{ id?: number; name: string }[]>([]);
   const [newBelonging, setNewBelonging] = useState<string>('');
 
   const [departureAddress, setDepartureAddress] = useState<string>('');
@@ -71,7 +71,7 @@ export default function EditListScreen() {
         setName(listData.name);
         setMemo(listData.memo || '');
         setSelectedCategoryId(listData.category?.id || null);
-        setBelongings(listData.packing_items.map(i => i.name));
+        setBelongings(listData.packing_items.map(i => ({ id: i.id, name: i.name })));
         setDepartureName(listData.departure_name || '');
         setDepartureLat(listData.departure_lat);
         setDepartureLng(listData.departure_lng);
@@ -89,8 +89,8 @@ export default function EditListScreen() {
     setIsSaving(true);
     try {
       const reqPacking = belongings
-        .filter(n => n.trim() !== '')
-        .map((n, index) => ({ name: n.trim(), sort_order: index }));
+        .filter(n => n.name.trim() !== '')
+        .map((n, index) => ({ name: n.name.trim(), sort_order: index }));
 
       await scheduleListApi.update(listId, {
         name: name || '無題の予定',
@@ -110,14 +110,39 @@ export default function EditListScreen() {
     }
   }
 
-  function removeBelonging(index: number) {
+  async function removeBelonging(index: number) {
+    const item = belongings[index];
+    if (item && item.id) {
+      try {
+        await scheduleListApi.deletePackingItem(listId, item.id);
+      } catch (e) {
+        console.error('Failed to delete packing item:', e);
+      }
+    }
     setBelongings(prev => prev.filter((_, i) => i !== index));
   }
 
-  function addBelonging() {
-    if (newBelonging.trim()) {
-      setBelongings(prev => [...prev, newBelonging.trim()]);
+  async function addBelonging() {
+    const itemName = newBelonging.trim();
+    if (itemName) {
+      const newOrder = belongings.length;
+      setBelongings(prev => [...prev, { name: itemName }]);
       setNewBelonging('');
+
+      try {
+        const createdItem = await scheduleListApi.addPackingItem(listId, {
+          name: itemName,
+          sort_order: newOrder,
+        });
+
+        setBelongings(prev =>
+          prev.map((b, i) =>
+            i === newOrder && !b.id && b.name === itemName ? { ...b, id: createdItem.id } : b
+          )
+        );
+      } catch (e) {
+        console.error('Failed to add packing item:', e);
+      }
     }
   }
 
@@ -223,7 +248,7 @@ export default function EditListScreen() {
             <Text style={styles.sectionLabel}>持ち物</Text>
             <View style={styles.belongingsCard}>
               {belongings.map((item, i) => (
-                <View key={`${item}-${i}`}>
+                <View key={`${item.id || item.name}-${i}`}>
                   <View style={styles.belongingRow}>
                     <View style={styles.reorderButtons}>
                       <TouchableOpacity
@@ -241,7 +266,7 @@ export default function EditListScreen() {
                         <Ionicons name="chevron-down" size={18} color={C.textMuted} />
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.belongingText}>{item}</Text>
+                    <Text style={styles.belongingText}>{item.name}</Text>
                     <TouchableOpacity onPress={() => removeBelonging(i)}>
                       <Ionicons name="remove-circle" size={22} color="#E57373" />
                     </TouchableOpacity>

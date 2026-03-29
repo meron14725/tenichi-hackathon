@@ -1,6 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+
+const penIcon = require('@/assets/images/pen.svg');
 
 export interface TodoItem {
   id: number;
@@ -30,8 +33,8 @@ export default function TodoCard({ todos, onToggle }: TodoCardProps): React.JSX.
     <View style={styles.wrapper}>
       <View style={styles.card}>
         <View style={styles.header}>
-          <MaterialCommunityIcons name="clipboard-text-outline" size={24.5} color={C.textPrimary} />
-          <Text style={styles.headerText}>今日やること！</Text>
+          <Image source={penIcon} style={styles.penIcon} contentFit="contain" />
+          <Text style={styles.headerText}>持ち物チェック！</Text>
         </View>
         <View style={styles.body}>
           {todos.length === 0 ? (
@@ -39,7 +42,13 @@ export default function TodoCard({ todos, onToggle }: TodoCardProps): React.JSX.
           ) : (
             todos.map((todo, index) => (
               <React.Fragment key={todo.id}>
-                {index > 0 && <View style={styles.dashedDivider} />}
+                {index > 0 && (
+                  <View style={styles.dashedDividerWrapper}>
+                    {Array.from({ length: 60 }).map((_, i) => (
+                      <View key={`dash-${i}`} style={styles.dash} />
+                    ))}
+                  </View>
+                )}
                 <TouchableOpacity
                   style={styles.row}
                   onPress={() => onToggle && onToggle(todo.id)}
@@ -95,6 +104,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: C.textPrimary,
   },
+  penIcon: {
+    width: 24.5,
+    height: 24.5,
+  },
   body: {
     paddingHorizontal: 17.5,
     paddingVertical: 17.5,
@@ -109,8 +122,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: C.textPrimary,
-    textDecorationLine: 'line-through',
-    textDecorationColor: C.textMuted,
   },
   text: {
     fontSize: 14,
@@ -146,11 +157,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: C.white,
   },
-  dashedDivider: {
-    height: 0,
-    borderBottomWidth: 1.5,
-    borderBottomColor: C.todoBorder,
-    borderStyle: 'dashed',
+  dashedDividerWrapper: {
+    flexDirection: 'row',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  dash: {
+    width: 8,
+    height: 1.5,
+    backgroundColor: C.todoBorder,
+    marginRight: 5,
   },
   emptyText: {
     fontSize: 14,
