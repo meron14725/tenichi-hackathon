@@ -14,14 +14,19 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import MapAddressPicker from '@/components/map-address-picker';
 import { userApi } from '@/api/userApi';
 import { scheduleListApi } from '@/api/scheduleListApi';
 import { categoryApi, CategoryResponse } from '@/api/categoryApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppColors as C } from '@/constants/app-colors';
-import { getCategoryIcon, getCategoryColor, CategoryIconInfo } from '@/utils/category-helper';
+import { getCategoryTheme } from '@/utils/category-helper';
+import { Image } from 'expo-image';
+
+const tabCalendarOutline = require('@/assets/images/tab-calendar-outline.svg');
+const checkCircleSolid = require('@/assets/images/check-circle-solid.svg');
+const tabRoutine = require('@/assets/images/tab-routine.svg');
 
 type Step = 'method' | 'form' | 'routine';
 
@@ -360,13 +365,12 @@ export default function RegisterScreen() {
     initData();
   }, [isAuthenticated]);
 
-  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showDepartureModal, setShowDepartureModal] = useState<boolean>(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine>(ROUTINES[0]);
   const [showRoutinePicker, setShowRoutinePicker] = useState<boolean>(false);
   const [routineBelongings, setRoutineBelongings] = useState<string[]>([]);
   const [newRoutineBelonging, setNewRoutineBelonging] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [createdScheduleListId, setCreatedScheduleListId] = useState<number | null>(null);
 
   async function handleSave() {
     setIsSaving(true);
@@ -403,8 +407,15 @@ export default function RegisterScreen() {
         packing_items: reqPacking,
       });
 
-      setCreatedScheduleListId(result.id);
-      setShowModal(true);
+      const actualTodayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (dateStr === actualTodayStr) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace({
+          pathname: '/schedule/list',
+          params: { id: result.id.toString() },
+        });
+      }
     } catch (e) {
       console.error('Failed to create schedule-list:', e);
     } finally {
@@ -443,35 +454,6 @@ export default function RegisterScreen() {
 
   const canSave = step === 'form' || step === 'routine';
 
-  function moveBelonging(index: number, direction: 'up' | 'down') {
-    setBelongings(prev => {
-      const next = [...prev];
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
-
-  function moveRoutineBelonging(index: number, direction: 'up' | 'down') {
-    setRoutineBelongings(prev => {
-      const next = [...prev];
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
-
-  function renderCategoryIcon(iconInfo: CategoryIconInfo, color: string) {
-    const size = 20;
-    if (iconInfo.iconSet === 'ionicons')
-      return <Ionicons name={iconInfo.icon as any} size={size} color={color} />;
-    if (iconInfo.iconSet === 'fa5')
-      return <FontAwesome5 name={iconInfo.icon} size={size} color={color} />;
-    return <MaterialCommunityIcons name={iconInfo.icon as any} size={size} color={color} />;
-  }
-
   return (
     <>
       <KeyboardAvoidingView
@@ -508,9 +490,30 @@ export default function RegisterScreen() {
                 <TouchableOpacity
                   style={[styles.methodCard, step === 'form' && styles.methodCardSelected]}
                   onPress={() => setStep('form')}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons name="calendar-outline" size={28} color={C.textPrimary} />
-                  <Text style={styles.methodText}>新しく登録</Text>
+                  {step === 'form' && (
+                    <View style={styles.methodCheckIconBg}>
+                      <Image
+                        source={checkCircleSolid}
+                        style={styles.methodCheckIcon}
+                        contentFit="contain"
+                      />
+                    </View>
+                  )}
+                  <Image
+                    source={tabCalendarOutline}
+                    style={{ width: 32, height: 32, tintColor: C.primary }}
+                    contentFit="contain"
+                  />
+                  <Text
+                    style={[
+                      styles.methodText,
+                      step === 'form' && { color: C.primary, fontWeight: '700' },
+                    ]}
+                  >
+                    新しく登録
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
@@ -518,13 +521,28 @@ export default function RegisterScreen() {
                     step === 'routine' && styles.methodCardRoutineSelected,
                   ]}
                   onPress={() => setStep('routine')}
+                  activeOpacity={0.7}
                 >
-                  <MaterialCommunityIcons
-                    name="arrow-u-left-top"
-                    size={28}
-                    color={step === 'routine' ? C.textPrimary : C.textPrimary}
+                  {step === 'routine' && (
+                    <View style={styles.methodCheckIconBg}>
+                      <Image
+                        source={checkCircleSolid}
+                        style={styles.methodCheckIcon}
+                        contentFit="contain"
+                      />
+                    </View>
+                  )}
+                  <Image
+                    source={tabRoutine}
+                    style={{ width: 32, height: 32, tintColor: C.primary }}
+                    contentFit="contain"
                   />
-                  <Text style={[styles.methodText, step === 'routine' && { fontWeight: '700' }]}>
+                  <Text
+                    style={[
+                      styles.methodText,
+                      step === 'routine' && { color: C.primary, fontWeight: '700' },
+                    ]}
+                  >
                     ルーティンで登録
                   </Text>
                 </TouchableOpacity>
@@ -534,26 +552,32 @@ export default function RegisterScreen() {
             {/* New registration form */}
             {step === 'form' && (
               <>
-                <View style={styles.formCard}>
-                  <Text style={styles.formLabel}>予定のタイトル</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    placeholder="友達と一日遊ぶ日"
-                    placeholderTextColor={C.placeholder}
-                    value={name}
-                    onChangeText={setName}
-                  />
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>予定のタイトル</Text>
+                  <View style={styles.inputCard}>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="友達と一日遊ぶ日"
+                      placeholderTextColor={C.placeholder}
+                      value={name}
+                      onChangeText={setName}
+                    />
+                  </View>
                 </View>
 
-                <View style={styles.formCard}>
-                  <Text style={styles.formLabel}>一言メモ</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    placeholder="お店の予約をする！"
-                    placeholderTextColor={C.placeholder}
-                    value={memo}
-                    onChangeText={setMemo}
-                  />
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>一言メモ</Text>
+                  <View style={styles.memoCard}>
+                    <TextInput
+                      style={styles.memoInput}
+                      placeholder="お店の予約をする！"
+                      placeholderTextColor={C.placeholder}
+                      value={memo}
+                      onChangeText={setMemo}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                  </View>
                 </View>
 
                 <View style={styles.section}>
@@ -561,21 +585,29 @@ export default function RegisterScreen() {
                   <View style={styles.typeRow}>
                     {categories.map(cat => {
                       const isSelected = selectedCategoryId === cat.id;
-                      const iconInfo = getCategoryIcon(cat.name);
-                      const catColor = getCategoryColor(cat.id);
+                      const theme = getCategoryTheme(cat.id);
                       return (
                         <TouchableOpacity
                           key={cat.id}
-                          style={[
-                            styles.typeButton,
-                            isSelected && { backgroundColor: catColor, borderColor: catColor },
-                          ]}
+                          style={[styles.typeButton, isSelected && styles.typeButtonSelected]}
                           onPress={() => setSelectedCategoryId(cat.id)}
+                          activeOpacity={0.7}
                         >
-                          {renderCategoryIcon(iconInfo, isSelected ? C.white : catColor)}
-                          <Text style={[styles.typeText, isSelected && styles.typeTextSelected]}>
-                            {cat.name}
-                          </Text>
+                          {isSelected && (
+                            <View style={styles.typeCheckIconBg}>
+                              <Image
+                                source={checkCircleSolid}
+                                style={styles.typeCheckIcon}
+                                contentFit="contain"
+                              />
+                            </View>
+                          )}
+                          <Image
+                            source={theme.icon}
+                            style={{ width: 21, height: 21 }}
+                            contentFit="contain"
+                          />
+                          <Text style={styles.typeText}>{cat.name}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -584,44 +616,45 @@ export default function RegisterScreen() {
 
                 <View style={styles.section}>
                   <Text style={styles.sectionLabel}>持ち物</Text>
-                  <View style={styles.belongingsCard}>
-                    {belongings.map((item, i) => (
-                      <View key={`${item}-${i}`}>
-                        <View style={styles.belongingRow}>
-                          <View style={styles.reorderButtons}>
-                            <TouchableOpacity
-                              onPress={() => moveBelonging(i, 'up')}
-                              disabled={i === 0}
-                              style={{ opacity: i === 0 ? 0.25 : 1 }}
-                            >
-                              <Ionicons name="chevron-up" size={18} color={C.textMuted} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => moveBelonging(i, 'down')}
-                              disabled={i === belongings.length - 1}
-                              style={{ opacity: i === belongings.length - 1 ? 0.25 : 1 }}
-                            >
-                              <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+
+                  {/* Added belongings list */}
+                  {belongings.length > 0 && (
+                    <View style={[styles.belongingsCard, { marginBottom: 10 }]}>
+                      {belongings.map((item, i) => (
+                        <View key={`belonging-${i}`}>
+                          <View style={styles.belongingRow}>
+                            <Text style={styles.belongingText}>{item}</Text>
+                            <TouchableOpacity onPress={() => removeBelonging(i)}>
+                              <Ionicons name="remove-circle" size={21} color={C.primary} />
                             </TouchableOpacity>
                           </View>
-                          <Text style={styles.belongingText}>{item}</Text>
-                          <TouchableOpacity onPress={() => removeBelonging(i)}>
-                            <Ionicons name="remove-circle" size={22} color="#E57373" />
-                          </TouchableOpacity>
+                          {i < belongings.length - 1 && (
+                            <View style={styles.dashedDividerWrapper}>
+                              {Array.from({ length: 60 }).map((_, d) => (
+                                <View key={`dash-${d}`} style={styles.dash} />
+                              ))}
+                            </View>
+                          )}
                         </View>
-                        {i < belongings.length - 1 && <View style={styles.belongingDivider} />}
-                      </View>
-                    ))}
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Input field (always visible) */}
+                  <View style={styles.belongingsCard}>
+                    <View style={styles.belongingRow}>
+                      <TextInput
+                        style={styles.belongingInput}
+                        placeholder="例：財布"
+                        placeholderTextColor={C.placeholder}
+                        value={newBelonging}
+                        onChangeText={setNewBelonging}
+                        onSubmitEditing={addBelonging}
+                        returnKeyType="done"
+                      />
+                    </View>
                   </View>
                   <View style={styles.addBelongingRow}>
-                    <TextInput
-                      style={styles.addBelongingInput}
-                      placeholder="持ち物を入力"
-                      placeholderTextColor={C.placeholder}
-                      value={newBelonging}
-                      onChangeText={setNewBelonging}
-                      onSubmitEditing={addBelonging}
-                    />
                     <TouchableOpacity style={styles.addBelongingButton} onPress={addBelonging}>
                       <Ionicons name="add" size={16} color={C.primary} />
                       <Text style={styles.addBelongingButtonText}>持ち物を追加</Text>
@@ -631,25 +664,17 @@ export default function RegisterScreen() {
 
                 <View style={styles.section}>
                   <Text style={styles.sectionLabel}>出発地</Text>
-                  <Text style={styles.sublabel}>
-                    住所を入力するとマップが移動します。ピンをタップで微調整できます。
-                  </Text>
-                  <View style={styles.mapWrapper}>
-                    <MapAddressPicker
-                      pinPosition={departurePinPosition}
-                      onPinChange={handleDepartureChange}
-                      onNameChange={setDepartureName}
-                      pinName={departureName}
-                    />
-                  </View>
-                  {departureAddress ? (
-                    <View style={styles.selectedAddressRow}>
-                      <Ionicons name="location" size={16} color={C.primary} />
-                      <Text style={styles.selectedAddressText} numberOfLines={2}>
-                        {departureAddress}
-                      </Text>
-                    </View>
-                  ) : null}
+                  <TouchableOpacity
+                    style={styles.departureCard}
+                    onPress={() => setShowDepartureModal(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="location-outline" size={20} color={C.textSecondary} />
+                    <Text style={styles.departureText}>
+                      {departureName || departureAddress || '自宅'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={C.textMuted} />
+                  </TouchableOpacity>
                 </View>
               </>
             )}
@@ -678,50 +703,49 @@ export default function RegisterScreen() {
                 {/* Belongings for routine */}
                 <View style={styles.section}>
                   <Text style={styles.sectionLabel}>持ち物</Text>
-                  <View style={styles.belongingsCard}>
-                    {routineBelongings.map((item, i) => (
-                      <View key={`rb-${i}`}>
-                        <View style={styles.belongingRow}>
-                          <View style={styles.reorderButtons}>
+
+                  {/* Added routine belongings list */}
+                  {routineBelongings.length > 0 && (
+                    <View style={[styles.belongingsCard, { marginBottom: 10 }]}>
+                      {routineBelongings.map((item, i) => (
+                        <View key={`rb-${i}`}>
+                          <View style={styles.belongingRow}>
+                            <Text style={styles.belongingText}>{item}</Text>
                             <TouchableOpacity
-                              onPress={() => moveRoutineBelonging(i, 'up')}
-                              disabled={i === 0}
-                              style={{ opacity: i === 0 ? 0.25 : 1 }}
+                              onPress={() =>
+                                setRoutineBelongings(prev => prev.filter((_, idx) => idx !== i))
+                              }
                             >
-                              <Ionicons name="chevron-up" size={18} color={C.textMuted} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => moveRoutineBelonging(i, 'down')}
-                              disabled={i === routineBelongings.length - 1}
-                              style={{ opacity: i === routineBelongings.length - 1 ? 0.25 : 1 }}
-                            >
-                              <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+                              <Ionicons name="remove-circle" size={21} color={C.primary} />
                             </TouchableOpacity>
                           </View>
-                          <Text style={styles.belongingText}>{item}</Text>
-                          <TouchableOpacity
-                            onPress={() =>
-                              setRoutineBelongings(prev => prev.filter((_, idx) => idx !== i))
-                            }
-                          >
-                            <Ionicons name="remove-circle" size={22} color="#E57373" />
-                          </TouchableOpacity>
+                          {i < routineBelongings.length - 1 && (
+                            <View style={styles.dashedDividerWrapper}>
+                              {Array.from({ length: 60 }).map((_, d) => (
+                                <View key={`dash-${d}`} style={styles.dash} />
+                              ))}
+                            </View>
+                          )}
                         </View>
-                        {i < routineBelongings.length - 1 && (
-                          <View style={styles.belongingDivider} />
-                        )}
-                      </View>
-                    ))}
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Input field (always visible) */}
+                  <View style={styles.belongingsCard}>
+                    <View style={styles.belongingRow}>
+                      <TextInput
+                        style={styles.belongingInput}
+                        placeholder="例：名刺"
+                        placeholderTextColor={C.placeholder}
+                        value={newRoutineBelonging}
+                        onChangeText={setNewRoutineBelonging}
+                        onSubmitEditing={addRoutineBelonging}
+                        returnKeyType="done"
+                      />
+                    </View>
                   </View>
                   <View style={styles.addBelongingRow}>
-                    <TextInput
-                      style={styles.addBelongingInput}
-                      placeholder="例：名刺"
-                      placeholderTextColor={C.placeholder}
-                      value={newRoutineBelonging}
-                      onChangeText={setNewRoutineBelonging}
-                      onSubmitEditing={addRoutineBelonging}
-                    />
                     <TouchableOpacity
                       style={styles.addBelongingButton}
                       onPress={addRoutineBelonging}
@@ -749,36 +773,30 @@ export default function RegisterScreen() {
         bottomInset={insets.bottom}
       />
 
-      {/* Success Modal */}
-      <Modal visible={showModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Ionicons name="checkmark-circle" size={48} color={C.accent} />
-            <Text style={styles.modalTitle}>予定を登録しました！</Text>
-            <Text style={styles.modalDesc}>続けてスケジュールも作成しますか？</Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButtonSecondary}
-                onPress={() => {
-                  setShowModal(false);
-                  router.back();
-                }}
-              >
-                <Text style={styles.modalButtonSecondaryText}>閉じる</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalButtonPrimary}
-                onPress={() => {
-                  setShowModal(false);
-                  router.push({
-                    pathname: '/schedule/unit/register',
-                    params: { schedule_list_id: String(createdScheduleListId) },
-                  });
-                }}
-              >
-                <Text style={styles.modalButtonPrimaryText}>スケジュール作成</Text>
-              </TouchableOpacity>
-            </View>
+      {/* Departure Modal */}
+      <Modal visible={showDepartureModal} animationType="slide" transparent>
+        <View style={styles.departureModalContainer}>
+          <View style={[styles.departureModalHeader, { paddingTop: Math.max(insets.top, 14) }]}>
+            <TouchableOpacity onPress={() => setShowDepartureModal(false)} style={{ padding: 10 }}>
+              <Text style={styles.departureModalCancelText}>キャンセル</Text>
+            </TouchableOpacity>
+            <Text style={styles.departureModalTitle}>出発地を設定</Text>
+            <TouchableOpacity onPress={() => setShowDepartureModal(false)} style={{ padding: 10 }}>
+              <Text style={styles.departureModalSaveText}>完了</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+            <Text style={styles.sublabel}>
+              住所を入力するとマップが移動します。ピンをタップで微調整できます。
+            </Text>
+          </View>
+          <View style={styles.departureModalBody}>
+            <MapAddressPicker
+              pinPosition={departurePinPosition}
+              onPinChange={handleDepartureChange}
+              onNameChange={setDepartureName}
+              pinName={departureName}
+            />
           </View>
         </View>
       </Modal>
@@ -822,77 +840,144 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
   },
-  methodCardSelected: { borderWidth: 2, borderColor: C.primary },
-  methodCardRoutineSelected: { backgroundColor: '#E6EDF6', borderWidth: 1, borderColor: C.primary },
+  methodCardSelected: { backgroundColor: '#E6EDF6', borderWidth: 1.5, borderColor: C.primary },
+  methodCardRoutineSelected: {
+    backgroundColor: '#E6EDF6',
+    borderWidth: 1.5,
+    borderColor: C.primary,
+  },
   methodText: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
+  methodCheckIconBg: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: C.white,
+    borderRadius: 14,
+  },
+  methodCheckIcon: {
+    width: 24,
+    height: 24,
+    tintColor: C.primary,
+  },
 
   // Form card
-  formCard: { backgroundColor: C.white, borderRadius: 7, padding: 14, gap: 8 },
-  formLabel: { fontSize: 14, fontWeight: '500', color: C.textSecondary },
-  formInput: { fontSize: 16, fontWeight: '500', color: C.textPrimary, paddingVertical: 4 },
+  inputCard: {
+    backgroundColor: C.white,
+    borderRadius: 7,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    height: 48,
+  },
+  formInput: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
+  memoCard: {
+    backgroundColor: C.white,
+    borderRadius: 7,
+    paddingHorizontal: 14,
+    height: 80,
+  },
+  memoInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: C.textPrimary,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
 
   // Type selector
-  typeRow: { flexDirection: 'row', gap: 10 },
+  typeRow: { flexDirection: 'row', gap: 8 },
   typeButton: {
     flex: 1,
     backgroundColor: C.white,
-    borderRadius: 7,
-    paddingVertical: 10,
+    borderRadius: 24,
+    paddingVertical: 10.5,
+    paddingHorizontal: 12.5,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
+    gap: 7,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  typeButtonSelected: { backgroundColor: C.accent },
-  typeText: { fontSize: 12.25, fontWeight: '500', color: C.textSecondary },
-  typeTextSelected: { color: C.white },
+  typeButtonSelected: { borderColor: C.primary },
+  typeText: { fontSize: 12.5, fontWeight: '700', color: C.textSecondary },
+  typeCheckIconBg: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: C.bg, // using C.bg so it blends with the screen background outside the card
+    borderRadius: 10,
+    padding: 2, // fake border by padding matching background color
+  },
+  typeCheckIcon: {
+    width: 16,
+    height: 16,
+    tintColor: C.primary,
+  },
 
   // Belongings
-  belongingsCard: { backgroundColor: C.white, borderRadius: 7, paddingHorizontal: 14 },
+  belongingsCard: {
+    backgroundColor: C.white,
+    borderRadius: 7,
+    paddingHorizontal: 14,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
   belongingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
     gap: 8,
   },
-  reorderButtons: {
-    alignItems: 'center',
-    gap: 0,
-  },
   belongingText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
-  belongingDivider: { height: 1, backgroundColor: C.border },
-  addBelongingRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  addBelongingInput: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderRadius: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: C.textPrimary,
+  belongingInput: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
+  dashedDividerWrapper: {
+    flexDirection: 'row',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  dash: {
+    width: 6,
+    height: 1,
+    backgroundColor: '#B5BFC5',
+    marginRight: 4,
+  },
+  addBelongingRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+    marginRight: 4,
   },
   addBelongingButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addBelongingButtonText: { fontSize: 12.25, fontWeight: '500', color: C.primary },
+  addBelongingButtonText: { fontSize: 13, fontWeight: '500', color: C.primary },
 
-  // Departure map
+  // Departure
   sublabel: { fontSize: 12.25, fontWeight: '400', color: C.textSecondary, marginBottom: 4 },
-  mapWrapper: { height: 200, borderRadius: 7, overflow: 'hidden', backgroundColor: C.border },
-  selectedAddressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    backgroundColor: C.white,
-    padding: 12.25,
-    borderRadius: 7,
-  },
-  selectedAddressText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
   departureCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.white,
     borderRadius: 7,
-    padding: 14,
+    paddingHorizontal: 14,
+    height: 48,
     gap: 10,
   },
   departureText: { flex: 1, fontSize: 14, fontWeight: '500', color: C.textPrimary },
+  departureModalContainer: { flex: 1, backgroundColor: C.bg },
+  departureModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.white,
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  departureModalCancelText: { fontSize: 15, color: C.textSecondary },
+  departureModalSaveText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  departureModalTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
+  departureModalBody: { flex: 1 },
 
   // Selected routine card
   selectedRoutineCard: {
@@ -908,43 +993,4 @@ const styles = StyleSheet.create({
   },
   selectedRoutineRow: { flexDirection: 'row', alignItems: 'center', gap: 10.5, flex: 1 },
   selectedRoutineTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-
-  // (routine picker styles are in pickerStyles above)
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-  },
-  modalContent: {
-    backgroundColor: C.white,
-    borderRadius: 14,
-    padding: 24,
-    alignItems: 'center',
-    gap: 12,
-    width: '100%',
-  },
-  modalTitle: { fontSize: 17.5, fontWeight: '700', color: C.textPrimary },
-  modalDesc: { fontSize: 14, fontWeight: '400', color: C.textSecondary, textAlign: 'center' },
-  modalButtons: { flexDirection: 'row', gap: 12, marginTop: 8, width: '100%' },
-  modalButtonSecondary: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 7,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalButtonSecondaryText: { fontSize: 14, fontWeight: '700', color: C.textSecondary },
-  modalButtonPrimary: {
-    flex: 1,
-    backgroundColor: C.primary,
-    borderRadius: 7,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalButtonPrimaryText: { fontSize: 14, fontWeight: '700', color: C.white },
 });
