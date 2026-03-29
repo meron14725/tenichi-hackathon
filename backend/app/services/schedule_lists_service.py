@@ -88,7 +88,11 @@ async def create_schedule_list(db: AsyncSession, user_id: int, data: ScheduleLis
             float(data.departure_lng) if data.departure_lng else None,
         )
     except Exception:
-        logger.warning("Failed to generate suggestion on list creation for user %d", user_id)
+        logger.exception("Failed to generate suggestion on list creation for user %d, date %s", user_id, data.date)
+        try:
+            await db.rollback()
+        except Exception:
+            pass
 
     return await _get_owned_list(db, user_id, sl.id)
 

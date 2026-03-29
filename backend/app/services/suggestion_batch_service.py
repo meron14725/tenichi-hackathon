@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 _CONCURRENCY = 5
 _MAX_RETRIES = 2
 _RETRY_DELAY = 2.0
+_FALLBACK_SUGGESTION = "今日も1日頑張りましょう！"
 
 
 async def _get_worst_weather_text(
@@ -138,11 +139,12 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
         logger.info("No users with schedules for %s", today)
         return {"success": 0, "failed": 0, "skipped": 0, "date": today.isoformat()}
 
-    # 既存キャッシュがあるユーザーをスキップ
+    # 既存キャッシュがあるユーザーをスキップ（フォールバック文言は上書き対象）
     existing_result = await db.execute(
         select(SuggestionCache.user_id).where(
             SuggestionCache.target_date == today,
             SuggestionCache.user_id.in_(user_ids),
+            SuggestionCache.suggestion_text != _FALLBACK_SUGGESTION,
         )
     )
     existing_user_ids = set(existing_result.scalars().all())
@@ -234,6 +236,7 @@ async def _get_weather_text_with_fallback(
 ) -> tuple[str, dict | None]:
     """座標から天気を取得。キャッシュ→リアルタイム→天気なしの3段フォールバック."""
     if lat is None or lon is None:
+        logger.debug("No coordinates available for weather lookup, skipping weather enrichment")
         return "天気情報は取得できませんでした。", None
 
     code = find_nearest_prefecture(lat, lon)
@@ -271,6 +274,8 @@ async def _get_weather_text_with_fallback(
         return _format_weather_for_prompt(weather_data), weather_summary
     except AppError:
         logger.info("Weather not available for %s (prefecture %s), generating without weather", target_date, code)
+    except Exception:
+        logger.warning("Unexpected error fetching weather for %s (prefecture %s)", target_date, code, exc_info=True)
 
     # 3. 天気なし
     return "天気予報はまだ取得できません。", None
@@ -325,13 +330,18 @@ async def generate_suggestion_for_schedule_list(
             break
         except Exception:
             if attempt < _MAX_RETRIES - 1:
-                logger.warning("Retrying suggestion generation for user %d, attempt %d", user_id, attempt + 1)
+                logger.warning(
+                    "Retrying suggestion generation for user %d, attempt %d",
+                    user_id,
+                    attempt + 1,
+                    exc_info=True,
+                )
                 await asyncio.sleep(_RETRY_DELAY)
             else:
                 logger.exception("Failed to generate suggestion for user %d after %d attempts", user_id, _MAX_RETRIES)
 
     if suggestion is None:
-        suggestion = "今日も1日頑張りましょう！"
+        suggestion = _FALLBACK_SUGGESTION
 
     stmt = pg_insert(SuggestionCache).values(
         user_id=user_id,
@@ -347,7 +357,12 @@ async def generate_suggestion_for_schedule_list(
             "updated_at": dt.datetime.now(dt.UTC),
         },
     )
-    await db.execute(stmt)
-    await db.commit()
+    try:
+        await db.execute(stmt)
+        await db.commit()
+    except Exception:
+        logger.exception("Failed to persist suggestion cache for user %d on %s", user_id, target_date)
+        await db.rollback()
+        return
 
     logger.info("Generated suggestion for user %d on %s", user_id, target_date)
