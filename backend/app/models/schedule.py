@@ -13,6 +13,7 @@ from app.models.tag import Tag, schedule_tags
 if TYPE_CHECKING:
     from app.models.schedule_list import ScheduleList
     from app.models.schedule_route import ScheduleRoute
+    from app.models.schedule_suggestion_cache import ScheduleSuggestionCache
     from app.models.user import User
 
 
@@ -43,5 +44,8 @@ class Schedule(Base):
     schedule_list: Mapped[ScheduleList | None] = relationship(back_populates="schedules")
     tags: Mapped[list[Tag]] = relationship(secondary=schedule_tags, lazy="selectin", passive_deletes=True)
     selected_route: Mapped[ScheduleRoute | None] = relationship(
+        back_populates="schedule", uselist=False, cascade="all, delete-orphan"
+    )
+    suggestion_cache: Mapped[ScheduleSuggestionCache | None] = relationship(
         back_populates="schedule", uselist=False, cascade="all, delete-orphan"
     )

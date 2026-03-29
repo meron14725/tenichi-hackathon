@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,9 @@ from app.exceptions import AppError
 from app.models.schedule import Schedule
 from app.models.tag import Tag, schedule_tags
 from app.schemas.schedules import ScheduleCreate, ScheduleUpdate
+from app.services import schedule_suggestion_service
+
+logger = logging.getLogger(__name__)
 
 
 async def _get_owned_schedule(db: AsyncSession, user_id: int, schedule_id: int) -> Schedule:
@@ -81,6 +85,16 @@ async def create_schedule(db: AsyncSession, user_id: int, data: ScheduleCreate) 
             await db.execute(schedule_tags.insert().values(schedule_id=schedule.id, tag_id=tag_id))
 
     await db.commit()
+
+    # LLM提案を即時生成してキャッシュ（失敗してもスケジュール作成は成功させる）
+    try:
+        fresh_schedule = await _get_owned_schedule(db, user_id, schedule.id)
+        async with db.begin_nested():
+            await schedule_suggestion_service.generate_and_cache(db, fresh_schedule)
+        await db.commit()
+    except Exception:
+        logger.exception("Failed to generate suggestion cache for schedule %s", schedule.id)
+
     return await _get_owned_schedule(db, user_id, schedule.id)
 
 
@@ -105,6 +119,15 @@ async def update_schedule(db: AsyncSession, user_id: int, schedule_id: int, data
             await db.execute(schedule_tags.insert().values(schedule_id=schedule_id, tag_id=tag_id))
 
     await db.commit()
+
+    # スケジュール更新時はキャッシュを無効化（次回アクセス時に再生成）
+    try:
+        async with db.begin_nested():
+            await schedule_suggestion_service.invalidate(db, schedule_id)
+        await db.commit()
+    except Exception:
+        logger.exception("Failed to invalidate suggestion cache for schedule %s", schedule_id)
+
     db.expire(schedule)
     return await _get_owned_schedule(db, user_id, schedule_id)
 
