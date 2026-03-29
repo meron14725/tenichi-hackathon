@@ -79,6 +79,9 @@ export const scheduleListApi = {
     }
     return await api.get<ScheduleListResponse[]>(endpoint);
   },
+  addPackingItem: async (listId: number, data: PackingItemCreate): Promise<PackingItemResponse> => {
+    return await api.post<PackingItemResponse>(`schedule-lists/${listId}/packing-items`, data);
+  },
   updatePackingItem: async (
     listId: number,
     itemId: number,
@@ -88,6 +91,9 @@ export const scheduleListApi = {
       `schedule-lists/${listId}/packing-items/${itemId}`,
       data
     );
+  },
+  deletePackingItem: async (listId: number, itemId: number): Promise<void> => {
+    await api.delete(`schedule-lists/${listId}/packing-items/${itemId}`);
   },
   update: async (
     id: number,
