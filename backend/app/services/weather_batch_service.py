@@ -29,16 +29,17 @@ async def _fetch_prefecture_weather(
     name: str,
     lat: float,
     lon: float,
-    target_date: str,
+    target_date: dt.date,
 ) -> dict | None:
     """1都道府県の天気を取得する。失敗時はリトライし、最終的にNoneを返す."""
+    date_str = target_date.isoformat()
     for attempt in range(_MAX_RETRIES):
         try:
             q = f"{lat},{lon}"
-            data = await fetch_forecast_raw(q, days=1, target_date=target_date)
+            data = await fetch_forecast_raw(q, days=1, target_date=date_str)
             forecast_days = data["forecast"]["forecastday"]
             for day in forecast_days:
-                if day["date"] == target_date:
+                if day["date"] == date_str:
                     location = build_location(data)
                     weather = build_day_weather(day, location)
                     severity = calc_weather_severity(
@@ -83,13 +84,12 @@ async def _fetch_prefecture_weather(
 async def fetch_all_prefectures_weather(db: AsyncSession) -> dict:
     """47都道府県の天気を取得してDBに保存する."""
     today = dt.datetime.now(ZoneInfo("Asia/Tokyo")).date()
-    target_date = today.isoformat()
 
     sem = asyncio.Semaphore(_CONCURRENCY)
 
     async def _fetch_with_semaphore(code: str, name: str, lat: float, lon: float) -> dict | None:
         async with sem:
-            return await _fetch_prefecture_weather(code, name, lat, lon, target_date)
+            return await _fetch_prefecture_weather(code, name, lat, lon, today)
 
     tasks = [_fetch_with_semaphore(code, name, lat, lon) for code, (name, lat, lon) in PREFECTURES.items()]
     results = await asyncio.gather(*tasks)
@@ -128,7 +128,7 @@ async def fetch_all_prefectures_weather(db: AsyncSession) -> dict:
         success_count,
         fail_count,
     )
-    return {"success": success_count, "failed": fail_count, "date": target_date}
+    return {"success": success_count, "failed": fail_count, "date": today.isoformat()}
 
 
 async def get_weather_cache_for_date(
