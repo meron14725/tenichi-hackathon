@@ -6,15 +6,16 @@ import datetime as dt
 import logging
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError
 from app.models.schedule import Schedule
 from app.models.schedule_suggestion_cache import ScheduleSuggestionCache
 from app.models.weather_cache import WeatherCache
 from app.services import gemini_service, weather_service
-from app.services.prefecture import PREFECTURES, find_nearest_prefecture
+from app.services.prefecture import find_nearest_prefecture
 from app.services.suggestions_service import (
     _format_schedule_for_prompt,
     _format_weather_for_prompt,
@@ -86,12 +87,15 @@ async def get_weather_for_schedule(
             }
             weather_text = _format_weather_for_prompt(weather_data)
             return weather_summary, weather_text
+        except AppError:
+            logger.info("Weather not available for schedule %s on %s", schedule.id, target_date)
         except Exception:
             logger.warning(
-                "Realtime weather fetch failed for schedule %s (lat=%s, lon=%s)",
+                "Unexpected error fetching weather for schedule %s (lat=%s, lon=%s)",
                 schedule.id,
                 lat,
                 lon,
+                exc_info=True,
             )
 
     # 3. 16日以降 or 天気取得失敗 → 天気なし
@@ -119,18 +123,14 @@ async def generate_and_cache(
         set_={
             "suggestion_text": stmt.excluded.suggestion_text,
             "weather_summary_json": stmt.excluded.weather_summary_json,
-            "updated_at": stmt.excluded.updated_at,
+            "updated_at": func.now(),
         },
     )
     await db.execute(stmt)
     await db.flush()
 
     # 挿入/更新した行を返す
-    result = await db.execute(
-        select(ScheduleSuggestionCache).where(
-            ScheduleSuggestionCache.schedule_id == schedule.id
-        )
-    )
+    result = await db.execute(select(ScheduleSuggestionCache).where(ScheduleSuggestionCache.schedule_id == schedule.id))
     return result.scalar_one()
 
 
@@ -139,18 +139,10 @@ async def get_cached(
     schedule_id: int,
 ) -> ScheduleSuggestionCache | None:
     """キャッシュ済み提案を取得する."""
-    result = await db.execute(
-        select(ScheduleSuggestionCache).where(
-            ScheduleSuggestionCache.schedule_id == schedule_id
-        )
-    )
+    result = await db.execute(select(ScheduleSuggestionCache).where(ScheduleSuggestionCache.schedule_id == schedule_id))
     return result.scalar_one_or_none()
 
 
 async def invalidate(db: AsyncSession, schedule_id: int) -> None:
     """スケジュール提案キャッシュを削除する."""
-    await db.execute(
-        delete(ScheduleSuggestionCache).where(
-            ScheduleSuggestionCache.schedule_id == schedule_id
-        )
-    )
+    await db.execute(delete(ScheduleSuggestionCache).where(ScheduleSuggestionCache.schedule_id == schedule_id))

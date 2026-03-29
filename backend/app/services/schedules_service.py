@@ -88,11 +88,12 @@ async def create_schedule(db: AsyncSession, user_id: int, data: ScheduleCreate) 
 
     # LLM提案を即時生成してキャッシュ（失敗してもスケジュール作成は成功させる）
     try:
-        await schedule_suggestion_service.generate_and_cache(db, schedule)
+        fresh_schedule = await _get_owned_schedule(db, user_id, schedule.id)
+        async with db.begin_nested():
+            await schedule_suggestion_service.generate_and_cache(db, fresh_schedule)
         await db.commit()
     except Exception:
-        logger.warning("Failed to generate suggestion cache for schedule %s", schedule.id)
-        await db.rollback()
+        logger.exception("Failed to generate suggestion cache for schedule %s", schedule.id)
 
     return await _get_owned_schedule(db, user_id, schedule.id)
 
@@ -121,11 +122,11 @@ async def update_schedule(db: AsyncSession, user_id: int, schedule_id: int, data
 
     # スケジュール更新時はキャッシュを無効化（次回アクセス時に再生成）
     try:
-        await schedule_suggestion_service.invalidate(db, schedule_id)
+        async with db.begin_nested():
+            await schedule_suggestion_service.invalidate(db, schedule_id)
         await db.commit()
     except Exception:
-        logger.warning("Failed to invalidate suggestion cache for schedule %s", schedule_id)
-        await db.rollback()
+        logger.exception("Failed to invalidate suggestion cache for schedule %s", schedule_id)
 
     db.expire(schedule)
     return await _get_owned_schedule(db, user_id, schedule_id)

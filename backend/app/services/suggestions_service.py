@@ -174,7 +174,8 @@ async def get_schedule_suggestion(db: AsyncSession, user: User, schedule_id: int
         await db.commit()
         return {"schedule_id": schedule.id, "suggestion": cache_entry.suggestion_text}
     except Exception:
-        logger.warning("Cache generation failed for schedule %s, using realtime", schedule_id)
+        logger.warning("Cache generation failed for schedule %s, using realtime", schedule_id, exc_info=True)
+        await db.rollback()
         schedule_text = _format_schedule_for_prompt(schedule)
         suggestion = await gemini_service.generate_schedule_suggestion(schedule_text)
         return {"schedule_id": schedule.id, "suggestion": suggestion}
