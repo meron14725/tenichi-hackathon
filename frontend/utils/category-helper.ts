@@ -28,3 +28,22 @@ export const CATEGORY_COLORS: Record<number, string> = {
 export function getCategoryColor(id: number): string {
   return CATEGORY_COLORS[id] || C.accent;
 }
+
+const workIconSvg = require('@/assets/images/work-icon.svg');
+const holidayIconSvg = require('@/assets/images/holiday-icon.svg');
+const travelIconSvg = require('@/assets/images/travel-icon.svg');
+const businessTripIconSvg = require('@/assets/images/business-trip-icon.svg');
+
+export function getCategoryTheme(categoryId?: number) {
+  switch (categoryId) {
+    case 4:
+      return { icon: holidayIconSvg, color: '#A86A78' };
+    case 5:
+      return { icon: travelIconSvg, color: '#C2A070' };
+    case 7:
+      return { icon: businessTripIconSvg, color: '#9284C2' };
+    case 6:
+    default:
+      return { icon: workIconSvg, color: '#8A9E97' };
+  }
+}
