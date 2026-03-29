@@ -905,9 +905,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     right: -6,
-    backgroundColor: C.bg, // using C.bg so it blends with the screen background outside the card
+    backgroundColor: C.bg, // 背景色(C.bg)による「切り抜き」風のボーダー効果
+    padding: 2,
     borderRadius: 10,
-    padding: 2, // fake border by padding matching background color
   },
   typeCheckIcon: {
     width: 16,

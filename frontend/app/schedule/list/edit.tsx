@@ -413,7 +413,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     right: -6,
-    backgroundColor: C.bg,
+    backgroundColor: C.bg, // 背景色(C.bg)による「切り抜き」風のボーダー効果
+    padding: 2,
     borderRadius: 12,
   },
   typeCheckIcon: {

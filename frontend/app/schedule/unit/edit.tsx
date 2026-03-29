@@ -156,21 +156,7 @@ export default function ScheduleEditScreen() {
     fetchInitialData().then(() => {
       initialFetchDone.current = true;
     });
-  }, [
-    isAuthenticated,
-    scheduleId,
-    params.title,
-    params.memo,
-    params.selected_category_id,
-    params.travel_mode,
-    params.destination_lat,
-    params.destination_lon,
-    params.destination_name,
-    params.destination_address,
-    params.arrival_hour,
-    params.arrival_minute,
-    params.use_last_train,
-  ]);
+  }, [isAuthenticated, scheduleId, params]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -900,7 +886,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     right: -6,
-    backgroundColor: C.bg,
+    backgroundColor: C.bg, // 背景色(C.bg)による「切り抜き」風のボーダー効果
+    padding: 2,
     borderRadius: 12,
   },
   categoryCheckIcon: {
