@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,9 @@ from app.schemas.schedule_lists import (
     ScheduleListCreate,
     ScheduleListUpdate,
 )
+from app.services import suggestion_batch_service
+
+logger = logging.getLogger(__name__)
 
 
 async def _get_owned_list(db: AsyncSession, user_id: int, list_id: int) -> ScheduleList:
@@ -73,6 +77,19 @@ async def create_schedule_list(db: AsyncSession, user_id: int, data: ScheduleLis
         db.add(item)
 
     await db.commit()
+
+    # 天気予報+LLM提案を即時生成（失敗してもリスト作成自体は成功させる）
+    try:
+        await suggestion_batch_service.generate_suggestion_for_schedule_list(
+            db,
+            user_id,
+            data.date,
+            float(data.departure_lat) if data.departure_lat else None,
+            float(data.departure_lng) if data.departure_lng else None,
+        )
+    except Exception:
+        logger.warning("Failed to generate suggestion on list creation for user %d", user_id)
+
     return await _get_owned_list(db, user_id, sl.id)
 
 
