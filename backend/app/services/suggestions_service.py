@@ -150,7 +150,15 @@ async def get_today_suggestion(db: AsyncSession, user: User) -> dict:
 
 
 async def get_schedule_suggestion(db: AsyncSession, user: User, schedule_id: int) -> dict:
-    """指定予定の提案を生成する."""
+    """指定予定の提案を生成する（キャッシュ優先）."""
+    from app.services import schedule_suggestion_service
+
+    # キャッシュ確認
+    cached = await schedule_suggestion_service.get_cached(db, schedule_id)
+    if cached and cached.user_id == user.id:
+        return {"schedule_id": schedule_id, "suggestion": cached.suggestion_text}
+
+    # キャッシュなし → スケジュール取得
     result = await db.execute(
         select(Schedule)
         .options(selectinload(Schedule.tags))
@@ -160,10 +168,13 @@ async def get_schedule_suggestion(db: AsyncSession, user: User, schedule_id: int
     if schedule is None:
         raise AppError("NOT_FOUND", "Schedule not found", 404)
 
-    schedule_text = _format_schedule_for_prompt(schedule)
-    suggestion = await gemini_service.generate_schedule_suggestion(schedule_text)
-
-    return {
-        "schedule_id": schedule.id,
-        "suggestion": suggestion,
-    }
+    # キャッシュ生成を試みる
+    try:
+        cache_entry = await schedule_suggestion_service.generate_and_cache(db, schedule)
+        await db.commit()
+        return {"schedule_id": schedule.id, "suggestion": cache_entry.suggestion_text}
+    except Exception:
+        logger.warning("Cache generation failed for schedule %s, using realtime", schedule_id)
+        schedule_text = _format_schedule_for_prompt(schedule)
+        suggestion = await gemini_service.generate_schedule_suggestion(schedule_text)
+        return {"schedule_id": schedule.id, "suggestion": suggestion}

@@ -4,6 +4,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.schedule import Schedule
 from app.models.schedule_list import PackingItem, ScheduleList
 from app.models.schedule_route import ScheduleRoute
+from app.models.schedule_suggestion_cache import ScheduleSuggestionCache
 from app.models.suggestion_cache import SuggestionCache
 from app.models.tag import Tag
 from app.models.template import Category, Template, TemplateSchedule
@@ -20,6 +21,7 @@ __all__ = [
     "Schedule",
     "ScheduleList",
     "ScheduleRoute",
+    "ScheduleSuggestionCache",
     "SuggestionCache",
     "Tag",
     "Template",
