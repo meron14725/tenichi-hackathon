@@ -169,7 +169,7 @@ class TestSuggestionsCacheIntegration:
         from app.main import app
         from app.models.suggestion_cache import SuggestionCache
 
-        today = dt.datetime.now(dt.timezone.utc).date()
+        today = dt.datetime.now(dt.UTC).date()
 
         async for db in app.dependency_overrides[get_db]():
             db.add(SuggestionCache(

@@ -114,7 +114,7 @@ async def fetch_all_prefectures_weather(db: AsyncSession) -> dict:
                 "wind_kph": stmt.excluded.wind_kph,
                 "weather_severity": stmt.excluded.weather_severity,
                 "raw_response": stmt.excluded.raw_response,
-                "updated_at": dt.datetime.now(dt.timezone.utc),
+                "updated_at": dt.datetime.now(dt.UTC),
             },
         )
         await db.execute(stmt)

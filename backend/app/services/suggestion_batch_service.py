@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.schedule import Schedule
 from app.models.suggestion_cache import SuggestionCache
-from app.models.user import User, UserSettings
+from app.models.user import UserSettings
 from app.models.weather_cache import WeatherCache
 from app.services import gemini_service
 from app.services.prefecture import find_nearest_prefecture
@@ -202,7 +202,7 @@ async def generate_all_suggestions(db: AsyncSession) -> dict:
             set_={
                 "suggestion_text": stmt.excluded.suggestion_text,
                 "weather_summary_json": stmt.excluded.weather_summary_json,
-                "updated_at": dt.datetime.now(dt.timezone.utc),
+                "updated_at": dt.datetime.now(dt.UTC),
             },
         )
         await db.execute(stmt)
